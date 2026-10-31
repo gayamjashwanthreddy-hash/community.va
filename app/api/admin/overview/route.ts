@@ -11,41 +11,52 @@ export async function GET() {
 
     const adminClient = createAdminClient();
 
-    // Verify admin role if user session is present
-    if (user) {
-      const { data: profile } = await adminClient
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (profile?.role !== "ADMIN") {
-        return NextResponse.json(
-          { success: false, message: "Unauthorized. Admin privileges required." },
-          { status: 403 }
-        );
-      }
+    // Strictly verify admin session
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Authentication required. Please log in as an administrator." },
+        { status: 401 }
+      );
     }
 
-    // Query real counts from DB
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized. Admin privileges required." },
+        { status: 403 }
+      );
+    }
+
+    // Query real counts directly from DB
     const [
       { count: totalStudents },
       { count: totalVolunteers },
       { count: totalColleges },
+      { count: pendingStudents },
       { count: pendingVolunteers },
       { count: pendingColleges },
+      { count: approvedStudents },
       { count: approvedVolunteers },
       { count: approvedColleges },
+      { count: rejectedStudents },
       { count: rejectedVolunteers },
       { count: rejectedColleges },
     ] = await Promise.all([
       adminClient.from("students").select("*", { count: "exact", head: true }),
       adminClient.from("volunteers").select("*", { count: "exact", head: true }),
       adminClient.from("colleges").select("*", { count: "exact", head: true }),
+      adminClient.from("students").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
       adminClient.from("volunteers").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
       adminClient.from("colleges").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
+      adminClient.from("students").select("*", { count: "exact", head: true }).eq("status", "APPROVED"),
       adminClient.from("volunteers").select("*", { count: "exact", head: true }).eq("status", "APPROVED"),
       adminClient.from("colleges").select("*", { count: "exact", head: true }).eq("status", "APPROVED"),
+      adminClient.from("students").select("*", { count: "exact", head: true }).eq("status", "REJECTED"),
       adminClient.from("volunteers").select("*", { count: "exact", head: true }).eq("status", "REJECTED"),
       adminClient.from("colleges").select("*", { count: "exact", head: true }).eq("status", "REJECTED"),
     ]);
@@ -56,11 +67,13 @@ export async function GET() {
         totalStudents: totalStudents || 0,
         totalVolunteers: totalVolunteers || 0,
         totalColleges: totalColleges || 0,
+        pendingStudents: pendingStudents || 0,
         pendingVolunteers: pendingVolunteers || 0,
         pendingColleges: pendingColleges || 0,
+        approvedStudents: approvedStudents || 0,
         approvedVolunteers: approvedVolunteers || 0,
         approvedColleges: approvedColleges || 0,
-        rejectedApplications: (rejectedVolunteers || 0) + (rejectedColleges || 0),
+        rejectedApplications: (rejectedStudents || 0) + (rejectedVolunteers || 0) + (rejectedColleges || 0),
       },
     });
   } catch (err: unknown) {

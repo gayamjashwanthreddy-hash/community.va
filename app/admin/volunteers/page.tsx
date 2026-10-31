@@ -37,69 +37,10 @@ interface VolunteerApp {
   };
 }
 
-const INITIAL_MOCK_VOLUNTEERS: VolunteerApp[] = [
-  {
-    id: "vol-01",
-    application_reference: "CVA-VOL-4190",
-    college_name: "VNR Vignana Jyothi Institute of Engineering & Technology",
-    branch: "Computer Science",
-    study_year: "2nd Year",
-    preferred_divisions: ["Operations", "Event Management", "Technical Team"],
-    skills: "Python, Next.js, Event logistics, Stage hosting",
-    experience: "Coordinated college technical symposium with 400+ attendees.",
-    availability: "Weekends & Evenings",
-    motivation: "I want to help build Hyderabad's largest student hackathon and connect builders.",
-    assigned_division: "Event Management",
-    status: "APPROVED",
-    created_at: "2026-10-28T14:20:00Z",
-    profiles: {
-      full_name: "Priya Varma",
-      email: "priya.varma@gmail.com",
-      mobile: "+91 98765 12345",
-    },
-  },
-  {
-    id: "vol-02",
-    application_reference: "CVA-VOL-5211",
-    college_name: "Chaitanya Bharathi Institute of Technology (CBIT)",
-    branch: "Electronics & Communication",
-    study_year: "3rd Year",
-    preferred_divisions: ["Design & Creative", "Marketing & Social Media"],
-    skills: "Figma, Adobe Illustrator, After Effects, Social content creation",
-    experience: "Designed posters and promotional reels for college cultural fest.",
-    availability: "Flexible & Event Days",
-    motivation: "Excited to shape the visual brand and digital reach of COMMUNITY.VA across campuses.",
-    status: "PENDING",
-    created_at: "2026-10-30T10:15:00Z",
-    profiles: {
-      full_name: "Sai Teja",
-      email: "saiteja.cbit@gmail.com",
-      mobile: "+91 91234 56789",
-    },
-  },
-  {
-    id: "vol-03",
-    application_reference: "CVA-VOL-6332",
-    college_name: "Gokaraju Rangaraju Institute of Engineering & Technology (GRIET)",
-    branch: "Information Technology",
-    study_year: "1st Year",
-    preferred_divisions: ["Technical Team", "Operations"],
-    skills: "C++, Git, Competitive programming",
-    experience: "Organized intra-college coding contests and workshops.",
-    availability: "Weekends Only",
-    motivation: "Eager to contribute to technical challenge platforms and mentor junior peers.",
-    status: "PENDING",
-    created_at: "2026-10-31T08:30:00Z",
-    profiles: {
-      full_name: "Aman Reddy",
-      email: "aman.reddy@griet.ac.in",
-      mobile: "+91 99887 66554",
-    },
-  },
-];
-
 export default function AdminVolunteersPage() {
-  const [volunteers, setVolunteers] = useState<VolunteerApp[]>(INITIAL_MOCK_VOLUNTEERS);
+  const [volunteers, setVolunteers] = useState<VolunteerApp[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedApp, setSelectedApp] = useState<VolunteerApp | null>(null);
@@ -110,6 +51,34 @@ export default function AdminVolunteersPage() {
   const [adminNote, setAdminNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [assignedDivision, setAssignedDivision] = useState("");
+
+  const fetchVolunteers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/applications?type=volunteers");
+      if (res.status === 401 || res.status === 403) {
+        setError("Admin privileges required. Please log in as an administrator.");
+        setVolunteers([]);
+        return;
+      }
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setVolunteers(data.data);
+      } else {
+        setError(data.message || "Failed to retrieve volunteer records.");
+      }
+    } catch (err) {
+      console.error("[Admin Volunteers Fetch Error]", err);
+      setError("Network error while connecting to Supabase database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVolunteers();
+  }, []);
 
   const handleAction = async (newStatus: "APPROVED" | "REJECTED" | "UNDER_REVIEW") => {
     if (!selectedApp) return;
@@ -194,6 +163,22 @@ export default function AdminVolunteersPage() {
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
         
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-900 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+              <p className="text-sm font-mono">{error}</p>
+            </div>
+            <button
+              onClick={fetchVolunteers}
+              className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-mono font-bold uppercase transition-colors shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-brand-dark uppercase">
@@ -221,16 +206,37 @@ export default function AdminVolunteersPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2 rounded-xl bg-white border border-brand-border text-xs font-mono font-bold text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-red"
             >
-              <option value="ALL">All Statuses</option>
-              <option value="PENDING">Pending</option>
-              <option value="UNDER_REVIEW">Under Review</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
+              <option value="ALL">All Statuses ({volunteers.length})</option>
+              <option value="PENDING">Pending ({volunteers.filter((v) => v.status === "PENDING").length})</option>
+              <option value="UNDER_REVIEW">Under Review ({volunteers.filter((v) => v.status === "UNDER_REVIEW").length})</option>
+              <option value="APPROVED">Approved ({volunteers.filter((v) => v.status === "APPROVED").length})</option>
+              <option value="REJECTED">Rejected ({volunteers.filter((v) => v.status === "REJECTED").length})</option>
             </select>
           </div>
         </div>
 
-        {/* Applications Table */}
+        {/* Loading State */}
+        {loading ? (
+          <div className="bg-white rounded-3xl border border-brand-border p-12 text-center">
+            <Loader2 className="w-8 h-8 text-brand-red animate-spin mx-auto mb-3" />
+            <p className="font-mono text-sm text-brand-dark/70">
+              Querying volunteer applications from Supabase database...
+            </p>
+          </div>
+        ) : filteredVolunteers.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-brand-border p-12 text-center">
+            <Layers className="w-10 h-10 text-brand-grey mx-auto mb-3" />
+            <h3 className="font-display text-lg font-bold text-brand-dark uppercase">
+              No Volunteer Applications Found
+            </h3>
+            <p className="font-mono text-xs text-brand-grey mt-1">
+              {volunteers.length === 0
+                ? "There are currently no volunteer applications in the database."
+                : "No volunteer records match the selected filter."}
+            </p>
+          </div>
+        ) : (
+        /* Applications Table */
         <div className="bg-white rounded-3xl border border-brand-border overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
@@ -303,6 +309,7 @@ export default function AdminVolunteersPage() {
             </table>
           </div>
         </div>
+        )}
 
       </main>
 

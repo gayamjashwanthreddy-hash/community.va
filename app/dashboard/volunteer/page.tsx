@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -14,29 +14,87 @@ import {
   Layers,
   Compass,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function VolunteerDashboardPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
   const [volunteerData, setVolunteerData] = useState({
-    fullName: "Volunteer Applicant",
-    email: "volunteer@example.com",
-    collegeName: "Hyderabad Engineering College",
-    branch: "Computer Science & Engineering",
-    studyYear: "2nd Year",
-    reference: "CVA-VOL-4190",
-    preferredDivisions: ["Operations", "Event Management", "Technical Team"],
-    assignedDivision: "Event Management",
-    skills: "Graphic design, event coordination, public speaking",
-    availability: "Weekends & Evenings",
-    status: "APPROVED" as "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED",
-    submissionDate: "October 2026",
+    fullName: "Loading...",
+    email: "",
+    collegeName: "",
+    branch: "",
+    studyYear: "",
+    reference: "Pending...",
+    preferredDivisions: [] as string[],
+    assignedDivision: "",
+    skills: "",
+    availability: "",
+    status: "PENDING" as "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED",
+    submissionDate: "",
     rejectionReason: "",
-    adminFeedback: "Selected for college fest coordination and hackathon logistics team.",
+    adminFeedback: "",
   });
+
+  useEffect(() => {
+    async function loadVolunteerData() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          router.push("/login");
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("id", user.id)
+          .single();
+
+        const { data: volApp } = await supabase
+          .from("volunteers")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (volApp) {
+          setVolunteerData({
+            fullName: profile?.full_name || user.user_metadata?.full_name || "Volunteer",
+            email: profile?.email || user.email || "",
+            collegeName: volApp.college_name || "Campus",
+            branch: volApp.branch || "",
+            studyYear: volApp.study_year || "",
+            reference: volApp.application_reference || "CVA-VOL",
+            preferredDivisions: volApp.preferred_divisions || [],
+            assignedDivision: volApp.assigned_division || "",
+            skills: volApp.skills || "",
+            availability: volApp.availability || "",
+            status: volApp.status || "PENDING",
+            submissionDate: new Date(volApp.created_at).toLocaleDateString("en-IN", {
+              month: "long",
+              year: "numeric"
+            }),
+            rejectionReason: "",
+            adminFeedback: volApp.assigned_division 
+              ? `Assigned to division: ${volApp.assigned_division}` 
+              : "",
+          });
+        }
+      } catch (err) {
+        console.error("[Volunteer Dashboard Load Error]", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadVolunteerData();
+  }, [router]);
 
   const handleLogout = async () => {
     try {

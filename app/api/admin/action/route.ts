@@ -10,20 +10,25 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // Verify Admin Authorization
-    if (user) {
-      const { data: profile } = await adminClient
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+    // Strictly require authenticated admin
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Authentication required. Please log in as an administrator." },
+        { status: 401 }
+      );
+    }
 
-      if (profile?.role !== "ADMIN") {
-        return NextResponse.json(
-          { success: false, message: "Unauthorized. Admin privileges required." },
-          { status: 403 }
-        );
-      }
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized. Administrator privileges required." },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();

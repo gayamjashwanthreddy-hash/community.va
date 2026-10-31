@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -10,35 +10,89 @@ import {
   CheckCircle2, 
   XCircle, 
   LogOut, 
-  Sparkles,
-  MapPin,
-  Users,
-  Handshake,
-  ExternalLink
+  Sparkles, 
+  MapPin, 
+  Users, 
+  Handshake, 
+  ExternalLink,
+  Loader2
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function CollegeDashboardPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
   const [collegeData, setCollegeData] = useState({
-    institutionName: "VNR Vignana Jyothi Institute of Engineering & Tech",
-    institutionType: "Engineering College",
-    website: "https://vnrvjiet.ac.in",
-    contactPerson: "Dr. K. Srinivas",
-    designation: "Dean of Student Affairs",
-    collegeEmail: "deansa@vnrvjiet.ac.in",
-    mobile: "+91 98765 43210",
+    institutionName: "Loading...",
+    institutionType: "",
+    website: "",
+    contactPerson: "",
+    designation: "",
+    collegeEmail: "",
+    mobile: "",
     city: "Hyderabad",
     state: "Telangana",
-    studentStrength: "6,000 - 10,000",
-    reference: "CVA-COL-7912",
-    collaborationAreas: ["Hackathons", "Technical Workshops", "Student Development", "Campus Chapters"],
-    status: "APPROVED" as "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED",
-    submissionDate: "October 2026",
+    studentStrength: "",
+    reference: "Pending...",
+    collaborationAreas: [] as string[],
+    status: "PENDING" as "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED",
+    submissionDate: "",
     rejectionReason: "",
-    adminFeedback: "Approved as campus venue partner for upcoming Hackathon track and Youth Open Mic series.",
+    adminFeedback: "",
   });
+
+  useEffect(() => {
+    async function loadCollegeData() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          router.push("/login");
+          return;
+        }
+
+        const { data: collegeApp } = await supabase
+          .from("colleges")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (collegeApp) {
+          setCollegeData({
+            institutionName: collegeApp.institution_name,
+            institutionType: collegeApp.institution_type || "Institution",
+            website: collegeApp.website || "",
+            contactPerson: collegeApp.contact_person,
+            designation: collegeApp.designation || "",
+            collegeEmail: collegeApp.college_email,
+            mobile: collegeApp.mobile || "",
+            city: collegeApp.city || "Hyderabad",
+            state: collegeApp.state || "Telangana",
+            studentStrength: collegeApp.student_strength || "",
+            reference: collegeApp.application_reference || "CVA-COL",
+            collaborationAreas: collegeApp.collaboration_areas || [],
+            status: collegeApp.status || "PENDING",
+            submissionDate: new Date(collegeApp.created_at).toLocaleDateString("en-IN", {
+              month: "long",
+              year: "numeric"
+            }),
+            rejectionReason: "",
+            adminFeedback: collegeApp.status === "APPROVED" 
+              ? "Official institutional partnership verified by COMMUNITY.VA administration." 
+              : "",
+          });
+        }
+      } catch (err) {
+        console.error("[College Dashboard Load Error]", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadCollegeData();
+  }, [router]);
 
   const handleLogout = async () => {
     try {

@@ -26,8 +26,10 @@ interface AdminStats {
   totalStudents: number;
   totalVolunteers: number;
   totalColleges: number;
+  pendingStudents?: number;
   pendingVolunteers: number;
   pendingColleges: number;
+  approvedStudents?: number;
   approvedVolunteers: number;
   approvedColleges: number;
   rejectedApplications: number;
@@ -37,28 +39,39 @@ export default function AdminOverviewPage() {
   const router = useRouter();
 
   const [stats, setStats] = useState<AdminStats>({
-    totalStudents: 148,
-    totalVolunteers: 42,
-    totalColleges: 16,
-    pendingVolunteers: 9,
-    pendingColleges: 4,
-    approvedVolunteers: 31,
-    approvedColleges: 11,
-    rejectedApplications: 3,
+    totalStudents: 0,
+    totalVolunteers: 0,
+    totalColleges: 0,
+    pendingStudents: 0,
+    pendingVolunteers: 0,
+    pendingColleges: 0,
+    approvedStudents: 0,
+    approvedVolunteers: 0,
+    approvedColleges: 0,
+    rejectedApplications: 0,
   });
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchStats = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       const res = await fetch("/api/admin/overview");
+      if (res.status === 401 || res.status === 403) {
+        setErrorMessage("Admin privileges required. Please ensure you are logged in with an administrator account.");
+        return;
+      }
       const data = await res.json();
       if (data.success && data.stats) {
         setStats(data.stats);
+      } else {
+        setErrorMessage(data.message || "Failed to retrieve real-time statistics from the database.");
       }
     } catch (err) {
-      console.warn("Using baseline stats", err);
+      console.error("[Admin Overview Fetch Error]", err);
+      setErrorMessage("Network error or database unreachable. Please verify database connectivity.");
     } finally {
       setLoading(false);
     }
@@ -177,6 +190,22 @@ export default function AdminOverviewPage() {
             Real-time counts, volunteer divisions, institutional verifications, and audit history.
           </p>
         </div>
+
+        {/* Error Banner */}
+        {errorMessage && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <XCircle className="w-5 h-5 text-amber-600 shrink-0" />
+              <p className="text-sm font-mono">{errorMessage}</p>
+            </div>
+            <button
+              onClick={fetchStats}
+              className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-mono font-bold uppercase transition-colors shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Primary Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">

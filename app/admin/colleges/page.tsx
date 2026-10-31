@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { 
   ArrowLeft, 
@@ -34,65 +34,10 @@ interface CollegeApp {
   created_at: string;
 }
 
-const INITIAL_MOCK_COLLEGES: CollegeApp[] = [
-  {
-    id: "col-01",
-    application_reference: "CVA-COL-7912",
-    institution_name: "VNR Vignana Jyothi Institute of Engineering & Technology",
-    institution_type: "Engineering College",
-    website: "https://vnrvjiet.ac.in",
-    college_email: "deansa@vnrvjiet.ac.in",
-    contact_person: "Dr. K. Srinivas",
-    designation: "Dean of Student Affairs",
-    mobile: "+91 98765 43210",
-    city: "Hyderabad",
-    state: "Telangana",
-    student_strength: "6,000 - 10,000",
-    collaboration_areas: ["Hackathons", "Technical Workshops", "Student Development", "Campus Chapters"],
-    additional_information: "Auditorium capacity 800+, 4 high-performance computer laboratories available for hackathon tracks.",
-    status: "APPROVED",
-    created_at: "2026-10-25T11:00:00Z",
-  },
-  {
-    id: "col-02",
-    application_reference: "CVA-COL-8120",
-    institution_name: "Institute of Aeronautical Engineering (IARE)",
-    institution_type: "Engineering College",
-    website: "https://iare.ac.in",
-    college_email: "principal@iare.ac.in",
-    contact_person: "Prof. M. Ramesh",
-    designation: "Head of Training & Placements",
-    mobile: "+91 91234 88776",
-    city: "Hyderabad",
-    state: "Telangana",
-    student_strength: "3,000 - 6,000",
-    collaboration_areas: ["Hackathons", "Technical Workshops", "Sports", "Career Opportunities"],
-    additional_information: "Interested in organizing an inter-college robotics and AI build challenge.",
-    status: "PENDING",
-    created_at: "2026-10-30T16:45:00Z",
-  },
-  {
-    id: "col-03",
-    application_reference: "CVA-COL-9304",
-    institution_name: "Bhavan's Vivekananda College of Science, Humanities & Commerce",
-    institution_type: "Degree College",
-    website: "https://bhavansvc.ac.in",
-    college_email: "events@bhavansvc.ac.in",
-    contact_person: "Smt. Sunita Rao",
-    designation: "Cultural Coordinator",
-    mobile: "+91 94400 11223",
-    city: "Hyderabad",
-    state: "Telangana",
-    student_strength: "3,000 - 6,000",
-    collaboration_areas: ["Cultural Events", "Student Development", "Campus Chapters"],
-    additional_information: "Open amphitheater available for acoustic nights and youth open mic competitions.",
-    status: "PENDING",
-    created_at: "2026-10-31T09:20:00Z",
-  },
-];
-
 export default function AdminCollegesPage() {
-  const [colleges, setColleges] = useState<CollegeApp[]>(INITIAL_MOCK_COLLEGES);
+  const [colleges, setColleges] = useState<CollegeApp[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedCollege, setSelectedCollege] = useState<CollegeApp | null>(null);
@@ -101,6 +46,34 @@ export default function AdminCollegesPage() {
   const [actionMsg, setActionMsg] = useState("");
   const [adminNote, setAdminNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+
+  const fetchColleges = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/applications?type=colleges");
+      if (res.status === 401 || res.status === 403) {
+        setError("Admin privileges required. Please log in as an administrator.");
+        setColleges([]);
+        return;
+      }
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setColleges(data.data);
+      } else {
+        setError(data.message || "Failed to retrieve college verification records.");
+      }
+    } catch (err) {
+      console.error("[Admin Colleges Fetch Error]", err);
+      setError("Network error while connecting to Supabase database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchColleges();
+  }, []);
 
   const handleAction = async (newStatus: "APPROVED" | "REJECTED" | "UNDER_REVIEW") => {
     if (!selectedCollege) return;
@@ -170,6 +143,22 @@ export default function AdminCollegesPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
         
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-900 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Building2 className="w-5 h-5 text-red-600 shrink-0" />
+              <p className="text-sm font-mono">{error}</p>
+            </div>
+            <button
+              onClick={fetchColleges}
+              className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-mono font-bold uppercase transition-colors shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-brand-dark uppercase">
@@ -197,16 +186,37 @@ export default function AdminCollegesPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2 rounded-xl bg-white border border-brand-border text-xs font-mono font-bold text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-blue"
             >
-              <option value="ALL">All Statuses</option>
-              <option value="PENDING">Pending</option>
-              <option value="UNDER_REVIEW">Under Review</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
+              <option value="ALL">All Statuses ({colleges.length})</option>
+              <option value="PENDING">Pending ({colleges.filter((c) => c.status === "PENDING").length})</option>
+              <option value="UNDER_REVIEW">Under Review ({colleges.filter((c) => c.status === "UNDER_REVIEW").length})</option>
+              <option value="APPROVED">Approved ({colleges.filter((c) => c.status === "APPROVED").length})</option>
+              <option value="REJECTED">Rejected ({colleges.filter((c) => c.status === "REJECTED").length})</option>
             </select>
           </div>
         </div>
 
-        {/* Table */}
+        {/* Loading State */}
+        {loading ? (
+          <div className="bg-white rounded-3xl border border-brand-border p-12 text-center">
+            <Loader2 className="w-8 h-8 text-brand-blue animate-spin mx-auto mb-3" />
+            <p className="font-mono text-sm text-brand-dark/70">
+              Querying registered institutions from Supabase database...
+            </p>
+          </div>
+        ) : filteredColleges.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-brand-border p-12 text-center">
+            <Building2 className="w-10 h-10 text-brand-grey mx-auto mb-3" />
+            <h3 className="font-display text-lg font-bold text-brand-dark uppercase">
+              No Registered Colleges Found
+            </h3>
+            <p className="font-mono text-xs text-brand-grey mt-1">
+              {colleges.length === 0
+                ? "There are currently no college applications in the database."
+                : "No college records match the selected filter."}
+            </p>
+          </div>
+        ) : (
+        /* Table */
         <div className="bg-white rounded-3xl border border-brand-border overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
@@ -272,6 +282,7 @@ export default function AdminCollegesPage() {
             </table>
           </div>
         </div>
+        )}
 
       </main>
 

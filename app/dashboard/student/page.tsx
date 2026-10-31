@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -15,28 +15,91 @@ import {
   Sparkles,
   MapPin,
   ExternalLink,
-  BookOpen
+  BookOpen,
+  Loader2
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function StudentDashboardPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
-  // Student state (populated from real session or fallback)
+  // Student state (populated from real Supabase session)
   const [studentData, setStudentData] = useState({
-    fullName: "Student Member",
-    email: "student@example.com",
-    mobile: "+91 98765 43210",
-    collegeName: "Hyderabad Campus",
-    branch: "Computer Science & Engineering",
-    studyYear: "2nd Year",
+    fullName: "Loading...",
+    email: "",
+    mobile: "",
+    collegeName: "",
+    branch: "",
+    studyYear: "",
     city: "Hyderabad",
-    interests: ["Hackathons & Coding", "Artificial Intelligence & ML", "Public Speaking"],
-    reference: "CVA-STU-8821",
-    status: "APPROVED" as "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED",
-    submissionDate: "October 2026",
+    interests: [] as string[],
+    reference: "Pending...",
+    status: "PENDING" as "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED",
+    submissionDate: "",
     rejectionReason: "",
   });
+
+  useEffect(() => {
+    async function loadStudentData() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          router.push("/login");
+          return;
+        }
+
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, email, mobile")
+          .eq("id", user.id)
+          .single();
+
+        // Fetch student application
+        const { data: studentApp } = await supabase
+          .from("students")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (studentApp) {
+          setStudentData({
+            fullName: profile?.full_name || user.user_metadata?.full_name || "Student Member",
+            email: profile?.email || user.email || "",
+            mobile: profile?.mobile || "",
+            collegeName: studentApp.college_name || "Campus",
+            branch: studentApp.branch || "",
+            studyYear: studentApp.study_year || "",
+            city: studentApp.city || "Hyderabad",
+            interests: studentApp.interests || [],
+            reference: studentApp.application_reference || "CVA-STU",
+            status: studentApp.status || "PENDING",
+            submissionDate: new Date(studentApp.created_at).toLocaleDateString("en-IN", {
+              month: "long",
+              year: "numeric"
+            }),
+            rejectionReason: "",
+          });
+        } else if (profile) {
+          setStudentData((prev) => ({
+            ...prev,
+            fullName: profile.full_name,
+            email: profile.email,
+            mobile: profile.mobile || "",
+          }));
+        }
+      } catch (err) {
+        console.error("[Student Dashboard Load Error]", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadStudentData();
+  }, [router]);
 
   const handleLogout = async () => {
     try {

@@ -11,19 +11,25 @@ export async function GET(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    if (user) {
-      const { data: profile } = await adminClient
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+    // Strictly require authenticated admin
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Authentication required. Please log in as an administrator." },
+        { status: 401 }
+      );
+    }
 
-      if (profile?.role !== "ADMIN") {
-        return NextResponse.json(
-          { success: false, message: "Unauthorized: Admin privileges required." },
-          { status: 403 }
-        );
-      }
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized: Admin privileges required." },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
