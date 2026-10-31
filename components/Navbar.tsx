@@ -9,7 +9,7 @@ const NAV_LINKS = [
   { name: "Home", href: "/#home" },
   { name: "About", href: "/#about" },
   { name: "Activities", href: "/#activities" },
-  { name: "Events", href: "/#events" },
+  { name: "Events", href: "/events" },
   { name: "Community", href: "/#community" },
   { name: "Get Involved", href: "/register" },
   { name: "Contact", href: "/#contact" },

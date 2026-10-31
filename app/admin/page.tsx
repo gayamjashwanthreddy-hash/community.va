@@ -16,7 +16,9 @@ import {
   ShieldCheck, 
   ArrowRight,
   TrendingUp,
-  RefreshCw
+  RefreshCw,
+  Calendar,
+  CreditCard
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -126,6 +128,13 @@ export default function AdminOverviewPage() {
             className="px-3.5 py-1.5 rounded-full bg-brand-dark text-white text-xs font-mono font-bold uppercase tracking-wider"
           >
             Overview
+          </Link>
+          <Link
+            href="/admin/events"
+            className="px-3.5 py-1.5 rounded-full hover:bg-brand-bg text-brand-dark/80 text-xs font-mono font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5"
+          >
+            <Calendar className="w-3.5 h-3.5 text-brand-red" />
+            <span>Events Management</span>
           </Link>
           <Link
             href="/admin/volunteers"
@@ -287,6 +296,44 @@ export default function AdminOverviewPage() {
               <span>Manage College Verifications</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
+          </div>
+
+          {/* Events Management Card */}
+          <div className="p-8 rounded-3xl bg-white border border-brand-border shadow-xs flex flex-col justify-between md:col-span-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold tracking-wider uppercase bg-brand-blue/10 text-brand-blue">
+                  Core Operations: Event Lifecycle & Registrations
+                </span>
+                <h2 className="font-display text-2xl font-extrabold text-brand-dark uppercase mt-2">
+                  Event Management, Dynamic Forms & UPI Payment Verification
+                </h2>
+              </div>
+              <div className="p-3 rounded-2xl bg-neutral-100 text-brand-dark self-start">
+                <Calendar className="w-6 h-6 text-brand-blue" />
+              </div>
+            </div>
+
+            <p className="font-body text-sm text-brand-dark/75 leading-relaxed mb-6 max-w-3xl">
+              Create and publish hackathons, masterclasses, and open mics; build dynamic custom registration questions; upload official payment QR codes; review participant submissions; and verify manual UPI payment proof screenshots.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <Link
+                href="/admin/events"
+                className="inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-brand-blue text-white font-display text-xs font-bold uppercase tracking-wider hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <span>Open Events Console</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+
+              <Link
+                href="/admin/events/create"
+                className="inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full border border-brand-border text-brand-dark font-display text-xs font-bold uppercase tracking-wider hover:bg-neutral-50 transition-colors"
+              >
+                <span>Create New Event</span>
+              </Link>
+            </div>
           </div>
 
         </div>

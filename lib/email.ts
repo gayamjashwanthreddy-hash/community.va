@@ -260,3 +260,230 @@ export async function sendCollegeStatusEmail(params: {
     return { success: false };
   }
 }
+
+
+// ==============================================================================
+// 5. EVENT NOTIFICATIONS & PAYMENT VERIFICATION EMAILS
+// ==============================================================================
+
+export async function sendEventRegistrationConfirmationEmail(params: {
+  participantName: string;
+  participantEmail: string;
+  eventTitle: string;
+  eventDate: string;
+  eventTime: string;
+  venue: string;
+  registrationNumber: string;
+  isPaid: boolean;
+  feeAmount?: number;
+  paymentStatus?: string;
+}): Promise<EmailResult> {
+  const resend = getResendClient();
+  if (!resend) {
+    console.warn(`[Event Registration Email] Confirmation for ${params.participantEmail} on ${params.eventTitle} logged.`);
+    return { success: true };
+  }
+
+  const title = `Registration Received: ${params.eventTitle}`;
+  const badge = params.isPaid ? "Payment Verification Pending" : "Registration Confirmed";
+
+  const paymentSection = params.isPaid
+    ? `
+      <div class="callout" style="border-left-color: #ED2424; background: #FFF8F8;">
+        <strong style="color: #ED2424;">Payment Status:</strong> Pending Verification<br/>
+        <strong>Registration Fee:</strong> ₹${params.feeAmount || 0}<br/>
+        <p style="margin-top: 8px; font-size: 13px; color: #555555;">
+          Your registration and payment proof have been received. Your payment is pending verification by the COMMUNITY.VA administration team. Once our coordinators verify your UPI transaction screenshot, you will receive an official payment confirmation email.
+        </p>
+      </div>
+    `
+    : `
+      <div class="callout" style="border-left-color: #1461C5; background: #F0F6FF;">
+        <strong style="color: #1461C5;">Registration Status:</strong> CONFIRMED (Free Event)<br/>
+        <p style="margin-top: 8px; font-size: 13px; color: #555555;">
+          Your pass for this event is secured. Please present your Registration ID at the venue desk during check-in.
+        </p>
+      </div>
+    `;
+
+  const content = `
+    <p>Dear <strong>${params.participantName}</strong>,</p>
+    <p>Thank you for registering for <strong>${params.eventTitle}</strong> with COMMUNITY.VA.</p>
+    
+    <div class="field">
+      <div class="label">Event Title</div>
+      <div class="value">${params.eventTitle}</div>
+    </div>
+    <div class="field">
+      <div class="label">Registration ID</div>
+      <div class="value" style="font-family: monospace; font-size: 16px; font-weight: 700; color: #1461C5;">${params.registrationNumber}</div>
+    </div>
+    <div class="field">
+      <div class="label">Date & Time</div>
+      <div class="value">${params.eventDate} • ${params.eventTime}</div>
+    </div>
+    <div class="field">
+      <div class="label">Venue</div>
+      <div class="value">${params.venue}</div>
+    </div>
+
+    ${paymentSection}
+
+    <div class="field">
+      <div class="label">Next Steps</div>
+      <div class="value">
+        • Keep this registration email and your Registration ID handy.<br/>
+        • Arrive at the venue at least 15 minutes prior to scheduled start.<br/>
+        • For any queries, reach our organizing desk at ${recipientEmail}.
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await resend.emails.send({
+      from: "COMMUNITY.VA Events <onboarding@resend.dev>",
+      to: [params.participantEmail],
+      subject: `COMMUNITY.VA — Registration Received: ${params.eventTitle}`,
+      html: baseEmailWrapper(title, badge, content),
+    });
+    return { success: true, messageId: (res as any)?.data?.id };
+  } catch (err) {
+    console.error("[Event Confirmation Email Error]", err);
+    return { success: false, error: String(err) };
+  }
+}
+
+export async function sendPaymentVerifiedEmail(params: {
+  participantName: string;
+  participantEmail: string;
+  eventTitle: string;
+  eventDate: string;
+  eventTime: string;
+  venue: string;
+  registrationNumber: string;
+  feeAmount: number;
+}): Promise<EmailResult> {
+  const resend = getResendClient();
+  if (!resend) {
+    console.warn(`[Payment Verified Email] Logged for ${params.participantEmail} on ${params.eventTitle}.`);
+    return { success: true };
+  }
+
+  const title = `Payment Verified: ${params.eventTitle}`;
+  const badge = "Payment Verified & Pass Confirmed";
+
+  const content = `
+    <p>Dear <strong>${params.participantName}</strong>,</p>
+    <p>Great news! The COMMUNITY.VA administration team has verified your payment for <strong>${params.eventTitle}</strong>.</p>
+    
+    <div class="callout" style="border-left-color: #10B981; background: #ECFDF5;">
+      <strong style="color: #065F46;">Status: PAYMENT VERIFIED & PASS CONFIRMED</strong><br/>
+      <strong>Amount Paid:</strong> ₹${params.feeAmount}<br/>
+      <strong>Registration ID:</strong> <span style="font-family: monospace;">${params.registrationNumber}</span>
+    </div>
+
+    <div class="field">
+      <div class="label">Event Schedule</div>
+      <div class="value">${params.eventDate} • ${params.eventTime}</div>
+    </div>
+    <div class="field">
+      <div class="label">Venue</div>
+      <div class="value">${params.venue}</div>
+    </div>
+
+    <p>Please show your Registration ID at the event reception desk upon arrival. We look forward to seeing you!</p>
+  `;
+
+  try {
+    const res = await resend.emails.send({
+      from: "COMMUNITY.VA Events <onboarding@resend.dev>",
+      to: [params.participantEmail],
+      subject: `COMMUNITY.VA — Payment Verified: ${params.eventTitle}`,
+      html: baseEmailWrapper(title, badge, content),
+    });
+    return { success: true, messageId: (res as any)?.data?.id };
+  } catch (err) {
+    console.error("[Payment Verified Email Error]", err);
+    return { success: false, error: String(err) };
+  }
+}
+
+export async function sendPaymentRejectedEmail(params: {
+  participantName: string;
+  participantEmail: string;
+  eventTitle: string;
+  registrationNumber: string;
+  reason: string;
+}): Promise<EmailResult> {
+  const resend = getResendClient();
+  if (!resend) {
+    console.warn(`[Payment Rejected Email] Logged for ${params.participantEmail} on ${params.eventTitle}.`);
+    return { success: true };
+  }
+
+  const title = `Payment Verification Update: ${params.eventTitle}`;
+  const badge = "Action Required: Payment Proof";
+
+  const content = `
+    <p>Dear <strong>${params.participantName}</strong>,</p>
+    <p>We reviewed your submitted payment proof for <strong>${params.eventTitle}</strong> (Registration: <code>${params.registrationNumber}</code>). Unfortunately, we were unable to verify this transaction.</p>
+    
+    <div class="callout" style="border-left-color: #ED2424; background: #FFF8F8;">
+      <strong style="color: #ED2424;">Administrative Note:</strong><br/>
+      ${params.reason || "The submitted screenshot was illegible or the UPI transaction reference could not be matched."}
+    </div>
+
+    <div class="field">
+      <div class="label">How to resolve</div>
+      <div class="value">
+        Please reply directly to this email with a clear screenshot of your completed UPI transaction showing the UTR / Reference ID, date, and timestamp, or contact our support team at ${recipientEmail}.
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await resend.emails.send({
+      from: "COMMUNITY.VA Events <onboarding@resend.dev>",
+      to: [params.participantEmail],
+      subject: `COMMUNITY.VA — Payment Verification Update: ${params.eventTitle}`,
+      html: baseEmailWrapper(title, badge, content),
+    });
+    return { success: true, messageId: (res as any)?.data?.id };
+  } catch (err) {
+    console.error("[Payment Rejected Email Error]", err);
+    return { success: false, error: String(err) };
+  }
+}
+
+export async function sendEventCancellationEmail(params: {
+  participantName: string;
+  participantEmail: string;
+  eventTitle: string;
+  registrationNumber: string;
+  reason?: string;
+}): Promise<EmailResult> {
+  const resend = getResendClient();
+  if (!resend) return { success: true };
+
+  const title = `Event Update: ${params.eventTitle}`;
+  const badge = "Event Notification";
+
+  const content = `
+    <p>Dear <strong>${params.participantName}</strong>,</p>
+    <p>This is an official notification that <strong>${params.eventTitle}</strong> has been cancelled or rescheduled.</p>
+    ${params.reason ? `<div class="callout"><strong>Organizer Note:</strong> ${params.reason}</div>` : ""}
+    <p>If you made a registration payment, our team will process the reversal to your originating UPI account. For any questions, contact us at ${recipientEmail}.</p>
+  `;
+
+  try {
+    const res = await resend.emails.send({
+      from: "COMMUNITY.VA Events <onboarding@resend.dev>",
+      to: [params.participantEmail],
+      subject: `COMMUNITY.VA — Event Notice: ${params.eventTitle}`,
+      html: baseEmailWrapper(title, badge, content),
+    });
+    return { success: true, messageId: (res as any)?.data?.id };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}

@@ -18,7 +18,7 @@ const EVENTS = [
     description: "A 36-hour sprint uniting student developers, designers, and problem solvers to build software tackling urban, educational, and sustainability challenges.",
     image: "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80",
     actionText: "Register Interest",
-    actionHref: "/#contact?subject=Hackathon%20Registration",
+    actionHref: "/events/community-va-innovation-hackathon-2026",
   },
   {
     id: "evt-02",
@@ -30,7 +30,7 @@ const EVENTS = [
     description: "An intensive interactive workshop focusing on stage presence, impromptu speaking, elevator pitches, and leading student organizations with empathy.",
     image: "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=1200&q=80",
     actionText: "Reserve Seat",
-    actionHref: "/#contact?subject=Workshop%20Reservation",
+    actionHref: "/events/youth-leadership-and-public-speaking-masterclass",
   },
   {
     id: "evt-03",
@@ -42,7 +42,7 @@ const EVENTS = [
     description: "An open stage for student vocalists, musicians, poets, and storytellers to perform in a supportive, energetic environment.",
     image: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80",
     actionText: "Join Performer List",
-    actionHref: "/#contact?subject=Open%20Mic%20Performer",
+    actionHref: "/events/youth-acoustic-open-mic-night",
   },
 ];
 
@@ -132,12 +132,20 @@ export default function EventScene() {
               {activeEvent.description}
             </p>
 
-            <div>
+            <div className="flex flex-wrap items-center gap-3">
               <Link
                 href={activeEvent.actionHref}
                 className="inline-flex items-center gap-2 px-6 py-3.5 bg-brand-blue text-white rounded-full font-display text-xs sm:text-sm font-bold uppercase tracking-wider hover:bg-brand-blue-hover transition-colors shadow-xs"
               >
                 <span>{activeEvent.actionText}</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </Link>
+
+              <Link
+                href="/events"
+                className="inline-flex items-center gap-2 px-5 py-3.5 border border-brand-border text-brand-dark rounded-full font-display text-xs sm:text-sm font-bold uppercase tracking-wider hover:bg-white transition-colors"
+              >
+                <span>All Events Calendar</span>
                 <ArrowUpRight className="w-4 h-4" />
               </Link>
             </div>

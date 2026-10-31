@@ -6,12 +6,12 @@ import Link from "next/link";
 import { Menu, X, ArrowUpRight, LogIn } from "lucide-react";
 
 const NAV_SCENES = [
-  { label: "01 — COMMUNITY", href: "#community-story" },
-  { label: "02 — WHAT WE DO", href: "#activities" },
-  { label: "03 — ECOSYSTEM", href: "#join" },
-  { label: "04 — EVENTS", href: "#events" },
+  { label: "01 — COMMUNITY", href: "/#community-story" },
+  { label: "02 — WHAT WE DO", href: "/#activities" },
+  { label: "03 — ECOSYSTEM", href: "/#join" },
+  { label: "04 — EVENTS", href: "/events" },
   { label: "05 — JOIN US", href: "/register" },
-  { label: "CONTACT", href: "#contact" },
+  { label: "CONTACT", href: "/#contact" },
 ];
 
 export default function CinematicNavbar() {
