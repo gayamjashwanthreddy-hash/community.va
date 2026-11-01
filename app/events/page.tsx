@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import CinematicNavbar from "@/components/motion/CinematicNavbar";
 import { EventItem } from "@/lib/events/types";
+import { OFFICIAL_COMMUNITY_EMAIL, OFFICIAL_MAILTO_LINK } from "@/lib/constants";
 
 const CATEGORIES = [
   "ALL",
@@ -242,7 +243,7 @@ export default function PublicEventsListingPage() {
           </div>
 
           <div className="text-xs font-mono text-neutral-500">
-            Official Contact: <a href="mailto:community.va@gmail.com" className="text-white hover:underline">community.va@gmail.com</a>
+            Official Contact: <a href={OFFICIAL_MAILTO_LINK} className="text-white hover:underline">{OFFICIAL_COMMUNITY_EMAIL}</a>
           </div>
         </div>
       </footer>

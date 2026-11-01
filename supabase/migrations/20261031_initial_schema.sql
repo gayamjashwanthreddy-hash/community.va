@@ -1,7 +1,7 @@
 -- ==============================================================================
 -- COMMUNITY.VA — Production Database Schema & Row Level Security (RLS)
 -- Location: Hyderabad, India
--- Official Email: community.va@gmail.com
+-- Official Email: community.vaofficial@gmail.com
 -- ==============================================================================
 
 -- Enable UUID extension if not already enabled

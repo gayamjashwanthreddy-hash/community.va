@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import FormQuestionBuilder from "@/components/admin/FormQuestionBuilder";
 import { EventFormQuestion, EventItem, EventStatus } from "@/lib/events/types";
+import { OFFICIAL_COMMUNITY_EMAIL } from "@/lib/constants";
 
 export default function EditEventPage() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function EditEventPage() {
   const [capacity, setCapacity] = useState(100);
 
   const [organizer, setOrganizer] = useState("COMMUNITY.VA");
-  const [contactEmail, setContactEmail] = useState("community.va@gmail.com");
+  const [contactEmail, setContactEmail] = useState(OFFICIAL_COMMUNITY_EMAIL);
   const [instructions, setInstructions] = useState("");
   const [status, setStatus] = useState<EventStatus>("DRAFT");
 
@@ -81,7 +82,7 @@ export default function EditEventPage() {
           setCoverImagePath(e.cover_image_path || "");
           setCapacity(e.capacity || 100);
           setOrganizer(e.organizer || "COMMUNITY.VA");
-          setContactEmail(e.contact_email || "community.va@gmail.com");
+          setContactEmail(e.contact_email || OFFICIAL_COMMUNITY_EMAIL);
           setInstructions(e.instructions || "");
           setStatus(e.status || "DRAFT");
 

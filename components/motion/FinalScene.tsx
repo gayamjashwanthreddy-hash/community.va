@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowUp, ArrowUpRight, Mail, MapPin, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { OFFICIAL_COMMUNITY_EMAIL, OFFICIAL_MAILTO_LINK } from "@/lib/constants";
 
 export default function FinalScene() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,7 +87,7 @@ export default function FinalScene() {
       }
     } catch {
       setFormStatus("error");
-      setFormMsg("A network error occurred. Please contact us directly at community.va@gmail.com.");
+      setFormMsg(`A network error occurred. Please contact us directly at ${OFFICIAL_COMMUNITY_EMAIL}.`);
     } finally {
       setFormLoading(false);
     }
@@ -158,8 +159,8 @@ export default function FinalScene() {
             <div className="space-y-3 pt-4 text-xs font-mono text-white/80">
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-brand-blue" />
-                <a href="mailto:community.va@gmail.com" className="hover:text-brand-blue-light transition-colors">
-                  community.va@gmail.com
+                <a href={OFFICIAL_MAILTO_LINK} className="hover:text-brand-blue-light transition-colors">
+                  {OFFICIAL_COMMUNITY_EMAIL}
                 </a>
               </div>
               <div className="flex items-center gap-2">

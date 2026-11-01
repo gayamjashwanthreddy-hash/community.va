@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUp, Mail, MapPin } from "lucide-react";
+import { OFFICIAL_COMMUNITY_EMAIL, OFFICIAL_MAILTO_LINK } from "@/lib/constants";
 
 export default function Footer() {
   const scrollToTop = () => {
@@ -102,11 +103,11 @@ export default function Footer() {
                 Official Inquiries:
               </span>
               <a
-                href="mailto:community.va@gmail.com"
+                href={OFFICIAL_MAILTO_LINK}
                 className="font-mono text-xs text-brand-blue-light hover:underline flex items-center gap-1.5"
               >
                 <Mail className="w-3.5 h-3.5" />
-                <span>community.va@gmail.com</span>
+                <span>{OFFICIAL_COMMUNITY_EMAIL}</span>
               </a>
             </div>
           </div>

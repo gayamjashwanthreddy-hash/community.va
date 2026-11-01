@@ -177,7 +177,7 @@ export default function LoginPage() {
               <span>Administrative Access Note:</span>
             </div>
             <p className="text-[11px] leading-relaxed">
-              Administrators are provisioned through server credentials (<code className="bg-brand-bg px-1 rounded text-brand-dark">community.va@gmail.com</code>). Public self-selection of the Admin role is strictly disabled.
+              Administrators are provisioned through server credentials (<code className="bg-brand-bg px-1 rounded text-brand-dark">community.vaofficial@gmail.com</code>). Public self-selection of the Admin role is strictly disabled.
             </p>
           </div>
 

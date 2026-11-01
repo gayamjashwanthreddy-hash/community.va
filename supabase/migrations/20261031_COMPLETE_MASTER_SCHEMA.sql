@@ -1,7 +1,7 @@
 -- ==============================================================================
 -- COMMUNITY.VA — ALL-IN-ONE MASTER SCHEMA FOR FRESH SUPABASE PROJECT
 -- Location: Hyderabad, India
--- Official Email: community.va@gmail.com
+-- Official Email: community.vaofficial@gmail.com
 -- ==============================================================================
 
 -- Step 1: Enable Extensions
@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS public.events (
   registration_end TIMESTAMPTZ NOT NULL,
   capacity INTEGER NOT NULL DEFAULT 100,
   organizer TEXT NOT NULL DEFAULT 'COMMUNITY.VA',
-  contact_email TEXT NOT NULL DEFAULT 'community.va@gmail.com',
+  contact_email TEXT NOT NULL DEFAULT 'community.vaofficial@gmail.com',
   instructions TEXT,
   status TEXT NOT NULL DEFAULT 'DRAFT',
   is_paid BOOLEAN NOT NULL DEFAULT false,
@@ -548,7 +548,7 @@ VALUES
   '2026-11-15 23:59:59+00',
   250,
   'COMMUNITY.VA Tech Division',
-  'community.va@gmail.com',
+  'community.vaofficial@gmail.com',
   'Bring your student ID card, laptops, chargers, and enthusiasm. Refreshments, meals, Wi-Fi and mentorship provided.',
   'PUBLISHED',
   true,
@@ -573,7 +573,7 @@ VALUES
   '2026-11-26 18:00:00+00',
   120,
   'COMMUNITY.VA Personal Growth Division',
-  'community.va@gmail.com',
+  'community.vaofficial@gmail.com',
   'Formal or smart-casual attire recommended. Notepad, workbook, and tea included.',
   'PUBLISHED',
   false,
@@ -598,7 +598,7 @@ VALUES
   '2026-12-03 23:59:59+00',
   90,
   'COMMUNITY.VA Cultural Division',
-  'community.va@gmail.com',
+  'community.vaofficial@gmail.com',
   'Acoustic instruments only. Performance slots confirmed via email 48 hours prior.',
   'PUBLISHED',
   false,

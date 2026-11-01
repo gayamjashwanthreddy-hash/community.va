@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Mail, Phone, MapPin, Send, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { OFFICIAL_COMMUNITY_EMAIL, OFFICIAL_MAILTO_LINK } from "@/lib/constants";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -90,7 +91,7 @@ export default function Contact() {
       }
     } catch {
       setStatus("error");
-      setStatusMessage("A network connection error occurred. Please check your internet connection or email us directly at community.va@gmail.com.");
+      setStatusMessage(`A network connection error occurred. Please check your internet connection or email us directly at ${OFFICIAL_COMMUNITY_EMAIL}.`);
     } finally {
       setLoading(false);
     }
@@ -144,10 +145,10 @@ export default function Contact() {
                       Direct Email
                     </span>
                     <a
-                      href="mailto:community.va@gmail.com"
+                      href={OFFICIAL_MAILTO_LINK}
                       className="font-mono text-sm font-bold text-brand-dark hover:text-brand-blue transition-colors"
                     >
-                      community.va@gmail.com
+                      {OFFICIAL_COMMUNITY_EMAIL}
                     </a>
                   </div>
                 </div>

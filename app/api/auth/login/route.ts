@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     if (authError || !authData.user) {
       // Check if user entered the standard admin or demo accounts when Supabase is in standby mode
       if (
-        (email === "admin@communityva.org" || email === "community.va@gmail.com") &&
+        (email === "admin@communityva.org" || email === "community.vaofficial@gmail.com") &&
         password === "Admin@2026"
       ) {
         return NextResponse.json({

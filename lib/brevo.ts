@@ -1,8 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateQrBuffer, generateQrDataUrl } from "./qr";
+import { OFFICIAL_COMMUNITY_EMAIL } from "@/lib/constants";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
-const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || process.env.CONTACT_EMAIL || "community.va@gmail.com";
+const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || process.env.CONTACT_EMAIL || OFFICIAL_COMMUNITY_EMAIL;
 const SENDER_NAME = "COMMUNITY.VA Official";
 const DAILY_LIMIT = 300;
 

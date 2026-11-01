@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.events (
   registration_end TIMESTAMPTZ NOT NULL,
   capacity INTEGER NOT NULL DEFAULT 100,
   organizer TEXT NOT NULL DEFAULT 'COMMUNITY.VA',
-  contact_email TEXT NOT NULL DEFAULT 'community.va@gmail.com',
+  contact_email TEXT NOT NULL DEFAULT 'community.vaofficial@gmail.com',
   instructions TEXT,
   status TEXT NOT NULL DEFAULT 'DRAFT', -- 'DRAFT', 'PUBLISHED', 'REGISTRATION_CLOSED', 'COMPLETED', 'CANCELLED'
   is_paid BOOLEAN NOT NULL DEFAULT false,

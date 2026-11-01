@@ -2,7 +2,7 @@
 
 > **Connecting People • Creating Opportunities**  
 > *Student-led youth community based in Hyderabad, India.*  
-> **Official Contact Email:** `community.va@gmail.com`
+> **Official Contact Email:** `community.vaofficial@gmail.com`
 
 ---
 
@@ -60,13 +60,13 @@ All migrations are located in `supabase/migrations/20261031_initial_schema.sql`:
 
 ## 04. Automated Transactional Emails (Resend)
 
-All transactional emails deliver via **Resend** with branded templates:
-- **Application Submitted**: Sent to applicant + alert sent to `community.va@gmail.com`.
+All transactional emails deliver via **Brevo** with branded templates:
+- **Application Submitted**: Sent to applicant + alert sent to `community.vaofficial@gmail.com`.
 - **Volunteer Approved**: Congratulations email with assigned division.
 - **Volunteer Rejected**: Professional update with constructive feedback.
 - **College Verified**: Official campus recognition confirmation.
 - **College Rejected**: Verification status feedback.
-- **Contact Inquiries**: Sent directly to `community.va@gmail.com` with `reply_to` header set to the sender.
+- **Contact Inquiries**: Sent directly to `community.vaofficial@gmail.com` with `reply_to` header set to the sender.
 
 ---
 
@@ -80,11 +80,12 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1Ni...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1Ni...
 
-# Resend API Key for Transactional Emails
-RESEND_API_KEY=re_your_api_key
+# Brevo Transactional Emails
+BREVO_API_KEY=xkeysib-...
+BREVO_SENDER_EMAIL=community.vaofficial@gmail.com
 
 # Official Contact Destination Email
-CONTACT_EMAIL=community.va@gmail.com
+CONTACT_EMAIL=community.vaofficial@gmail.com
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 

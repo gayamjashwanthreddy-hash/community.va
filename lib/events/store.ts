@@ -21,6 +21,7 @@ import {
   sendPaymentSubmittedEmail,
   dispatchRegistrationEmails
 } from "@/lib/brevo";
+import { OFFICIAL_COMMUNITY_EMAIL } from "@/lib/constants";
 
 // Built-in verified baseline events for seamless initial launch
 const INITIAL_SEED_EVENTS: EventItem[] = [
@@ -37,7 +38,7 @@ const INITIAL_SEED_EVENTS: EventItem[] = [
     registration_end: "2026-11-15T23:59:59Z",
     capacity: 250,
     organizer: "COMMUNITY.VA Tech Division",
-    contact_email: "community.va@gmail.com",
+    contact_email: OFFICIAL_COMMUNITY_EMAIL,
     instructions: "Bring your student ID card, laptops, chargers, and enthusiasm. Meals, refreshments, mentorship, and high-speed Wi-Fi provided.",
     status: "PUBLISHED",
     is_paid: true,
@@ -118,7 +119,7 @@ const INITIAL_SEED_EVENTS: EventItem[] = [
     registration_end: "2026-11-26T18:00:00Z",
     capacity: 120,
     organizer: "COMMUNITY.VA Personal Growth Division",
-    contact_email: "community.va@gmail.com",
+    contact_email: OFFICIAL_COMMUNITY_EMAIL,
     instructions: "Formal / smart casual attire recommended. Notepad, workbook, and networking tea included.",
     status: "PUBLISHED",
     is_paid: false,
@@ -170,7 +171,7 @@ const INITIAL_SEED_EVENTS: EventItem[] = [
     registration_end: "2026-12-03T23:59:59Z",
     capacity: 90,
     organizer: "COMMUNITY.VA Cultural Division",
-    contact_email: "community.va@gmail.com",
+    contact_email: OFFICIAL_COMMUNITY_EMAIL,
     instructions: "Acoustic instruments only. Slot allocation will be confirmed via email 48 hours prior to the event.",
     status: "PUBLISHED",
     is_paid: false,
@@ -407,7 +408,7 @@ export async function createEvent(
     registration_end: eventData.registration_end || new Date(Date.now() + 86400000 * 14).toISOString(),
     capacity: Number(eventData.capacity) || 100,
     organizer: eventData.organizer || "COMMUNITY.VA",
-    contact_email: eventData.contact_email || "community.va@gmail.com",
+    contact_email: eventData.contact_email || OFFICIAL_COMMUNITY_EMAIL,
     instructions: eventData.instructions || "",
     status: eventData.status || "DRAFT",
     is_paid: Boolean(eventData.is_paid),

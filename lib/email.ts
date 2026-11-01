@@ -1,7 +1,8 @@
 import { Resend } from "resend";
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const recipientEmail = process.env.CONTACT_EMAIL || "community.va@gmail.com";
+import { OFFICIAL_COMMUNITY_EMAIL } from "@/lib/constants";
+const recipientEmail = process.env.CONTACT_EMAIL || OFFICIAL_COMMUNITY_EMAIL;
 
 interface EmailResult {
   success: boolean;
