@@ -30,14 +30,37 @@ export async function POST(
 
     const adminClient = createAdminClient();
 
-    // 1. Fetch registration by token
-    const { data: reg, error: regErr } = await adminClient
-      .from("event_registrations")
-      .select("*, payment:event_payments(*)")
+    // 1. Fetch registration or team member by token
+    let reg: any = null;
+    let member: any = null;
+    let isMemberToken = false;
+
+    // Check if token belongs to individual team member
+    const { data: dbMember } = await adminClient
+      .from("event_team_members")
+      .select("*")
       .eq("qr_token", qrToken.trim())
       .single();
 
-    if (regErr || !reg) {
+    if (dbMember) {
+      member = dbMember;
+      isMemberToken = true;
+      const { data: parentReg } = await adminClient
+        .from("event_registrations")
+        .select("*, payment:event_payments(*)")
+        .eq("id", dbMember.registration_id)
+        .single();
+      reg = parentReg;
+    } else {
+      const { data: dbReg } = await adminClient
+        .from("event_registrations")
+        .select("*, payment:event_payments(*)")
+        .eq("qr_token", qrToken.trim())
+        .single();
+      reg = dbReg;
+    }
+
+    if (!reg) {
       return NextResponse.json(
         { 
           success: false, 
@@ -86,7 +109,8 @@ export async function POST(
           message: "Payment is pending or not verified by an administrator.",
           paymentStatus: payment?.payment_status || "PAYMENT_PENDING",
           participant: {
-            name: reg.participant_name,
+            name: isMemberToken ? member.member_name : reg.participant_name,
+            teamName: reg.team_name,
             registrationNumber: reg.registration_number,
           },
         });
@@ -94,23 +118,46 @@ export async function POST(
     }
 
     // 5. Existing attendance check
-    const { data: attendance } = await adminClient
-      .from("event_attendance")
-      .select("*")
-      .eq("event_id", event.id)
-      .eq("registration_id", reg.id)
-      .single();
+    let alreadyCheckedIn = false;
+    let checkedInAt: string | null = null;
 
-    if (attendance) {
+    if (isMemberToken) {
+      const { data: memberAttendance } = await adminClient
+        .from("event_attendance")
+        .select("*")
+        .eq("event_id", event.id)
+        .eq("team_member_id", member.id)
+        .single();
+
+      if (memberAttendance) {
+        alreadyCheckedIn = true;
+        checkedInAt = memberAttendance.checked_in_at;
+      }
+    } else {
+      const { data: regAttendance } = await adminClient
+        .from("event_attendance")
+        .select("*")
+        .eq("event_id", event.id)
+        .eq("registration_id", reg.id)
+        .single();
+
+      if (regAttendance) {
+        alreadyCheckedIn = true;
+        checkedInAt = regAttendance.checked_in_at;
+      }
+    }
+
+    if (alreadyCheckedIn) {
       return NextResponse.json({
         success: true,
         eligible: false,
         alreadyCheckedIn: true,
         result: "ALREADY_CHECKED_IN",
-        message: "Participant has already checked in.",
-        checkedInAt: attendance.checked_in_at,
+        message: isMemberToken ? "Team member has already checked in." : "Participant / Team has already checked in.",
+        checkedInAt,
         participant: {
-          name: reg.participant_name,
+          name: isMemberToken ? member.member_name : reg.participant_name,
+          teamName: reg.team_name,
           registrationNumber: reg.registration_number,
         },
       });
@@ -121,12 +168,14 @@ export async function POST(
       success: true,
       eligible: true,
       result: "ELIGIBLE_FOR_ENTRY",
-      message: "Participant is verified and eligible for entry.",
+      message: "Pass is verified and eligible for entry.",
+      isTeam: Boolean(reg.is_team_registration),
+      teamName: reg.team_name,
       participant: {
-        id: reg.id,
-        name: reg.participant_name,
-        email: reg.participant_email,
-        phone: reg.participant_phone,
+        id: isMemberToken ? member.id : reg.id,
+        name: isMemberToken ? member.member_name : reg.participant_name,
+        email: isMemberToken ? member.email : reg.participant_email,
+        phone: isMemberToken ? member.phone : reg.participant_phone,
         registrationNumber: reg.registration_number,
       },
       paymentStatus: payment?.payment_status || "NOT_REQUIRED",

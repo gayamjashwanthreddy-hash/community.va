@@ -278,8 +278,121 @@ export async function sendBrevoEmail({
   }
 }
 
+function escapeHtml(str: string | null | undefined): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+export interface BrevoTeamMember {
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  college?: string | null;
+  branch?: string | null;
+  year?: string | null;
+  isLeader?: boolean;
+  qrToken?: string | null;
+}
+
+export interface BrevoTeamDetails {
+  teamName: string;
+  teamRegistrationId: string;
+  teamLeaderName: string;
+  teamLeaderEmail?: string | null;
+  teamLeaderPhone?: string | null;
+  teamSize: number;
+  members: BrevoTeamMember[];
+}
+
 /**
- * Send Confirmed Event Entry QR Pass Email
+ * Dynamically builds the dedicated TEAM DETAILS HTML block for emails.
+ * Only rendered when registration is a team registration.
+ */
+export function buildTeamDetailsSectionHtml(
+  teamDetails: BrevoTeamDetails,
+  options: { hidePrivateContacts?: boolean } = {}
+): string {
+  if (!teamDetails || !teamDetails.teamName) return "";
+
+  const memberRows = (teamDetails.members || []).map((member, idx) => {
+    const extraDetails = [member.college, member.branch, member.year].filter(Boolean).join(" • ");
+    const showContact = !options.hidePrivateContacts;
+
+    return `
+      <tr style="border-bottom: 1px solid #EAEAEA; ${idx % 2 === 1 ? 'background-color: #FAFAFA;' : 'background-color: #FFFFFF;'}">
+        <td style="padding: 10px 12px; font-family: monospace; font-weight: 700; color: #666666; text-align: center; vertical-align: top;">${idx + 1}</td>
+        <td style="padding: 10px 12px; color: #111111; vertical-align: top;">
+          <div style="font-weight: 700; font-size: 13px;">
+            ${escapeHtml(member.name)}
+            ${member.isLeader ? ' <span style="font-size: 9px; background: #EEF4FC; color: #1461C5; border: 1px solid #C9DCF8; padding: 2px 6px; border-radius: 9999px; font-weight: 800; text-transform: uppercase; font-family: monospace; margin-left: 4px;">Leader</span>' : ''}
+          </div>
+          ${extraDetails ? `<div style="font-size: 11px; color: #777777; margin-top: 3px;">${escapeHtml(extraDetails)}</div>` : ''}
+        </td>
+        <td style="padding: 10px 12px; color: #444444; font-size: 12px; font-family: monospace; vertical-align: top;">
+          ${member.email ? `<div><a href="mailto:${escapeHtml(member.email)}" style="color: #1461C5; text-decoration: none;">${escapeHtml(member.email)}</a></div>` : '<div style="color: #999999;">—</div>'}
+          ${showContact && member.phone ? `<div style="font-size: 11px; color: #777777; margin-top: 3px;">${escapeHtml(member.phone)}</div>` : ''}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <div style="margin: 24px 0; background: #FAF9F6; border: 1px solid #E2E2DF; border-radius: 12px; overflow: hidden;">
+      <div style="background: #111111; color: #ffffff; padding: 12px 18px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; font-family: monospace;">
+        ★ TEAM DETAILS
+      </div>
+      <div style="padding: 18px 20px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 18px;">
+          <tr>
+            <td style="padding: 5px 0; color: #777777; width: 160px; font-weight: 700; text-transform: uppercase; font-size: 11px; font-family: monospace;">Team Name:</td>
+            <td style="padding: 5px 0; color: #111111; font-weight: 800; font-size: 15px;">${escapeHtml(teamDetails.teamName)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #777777; font-weight: 700; text-transform: uppercase; font-size: 11px; font-family: monospace;">Team Registration ID:</td>
+            <td style="padding: 5px 0; color: #1461C5; font-family: monospace; font-weight: 700;">${escapeHtml(teamDetails.teamRegistrationId)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #777777; font-weight: 700; text-transform: uppercase; font-size: 11px; font-family: monospace;">Team Leader:</td>
+            <td style="padding: 5px 0; color: #111111; font-weight: 700;">${escapeHtml(teamDetails.teamLeaderName)}</td>
+          </tr>
+          ${teamDetails.teamLeaderEmail ? `
+          <tr>
+            <td style="padding: 5px 0; color: #777777; font-weight: 700; text-transform: uppercase; font-size: 11px; font-family: monospace;">Leader Contact:</td>
+            <td style="padding: 5px 0; color: #333333; font-family: monospace;">${escapeHtml(teamDetails.teamLeaderEmail)}${teamDetails.teamLeaderPhone && !options?.hidePrivateContacts ? ` • ${escapeHtml(teamDetails.teamLeaderPhone)}` : ''}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="padding: 5px 0; color: #777777; font-weight: 700; text-transform: uppercase; font-size: 11px; font-family: monospace;">Total Team Size:</td>
+            <td style="padding: 5px 0; color: #111111; font-weight: 700;">${teamDetails.teamSize} ${teamDetails.teamSize === 1 ? 'Member' : 'Members'}</td>
+          </tr>
+        </table>
+
+        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #777777; letter-spacing: 0.5px; font-family: monospace; margin-bottom: 8px;">
+          Registered Team Roster
+        </div>
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #E2E2DF; border-radius: 8px; overflow: hidden; background: #ffffff;">
+          <thead>
+            <tr style="background-color: #F0F0EE; border-bottom: 2px solid #E2E2DF; font-size: 11px; text-transform: uppercase; font-family: monospace; color: #555555;">
+              <th style="padding: 8px 10px; width: 36px; text-align: center;">No.</th>
+              <th style="padding: 8px 12px; text-align: left;">Member Name</th>
+              <th style="padding: 8px 12px; text-align: left;">Email / Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${memberRows}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Send Confirmed Event Entry QR Pass Email (supports individual and team registrations)
  */
 export async function sendEventConfirmedPassEmail({
   recipientEmail,
@@ -293,6 +406,9 @@ export async function sendEventConfirmedPassEmail({
   qrToken,
   isPaid,
   feeAmount,
+  isTeamRegistration = false,
+  teamDetails,
+  isMemberSpecificPass = false,
 }: {
   recipientEmail: string;
   recipientName: string;
@@ -302,13 +418,21 @@ export async function sendEventConfirmedPassEmail({
   eventEnd: string;
   registrationNumber: string;
   registrationId: string;
-  qrToken: string;
+  qrToken?: string;
   isPaid: boolean;
   feeAmount?: number;
+  isTeamRegistration?: boolean;
+  teamDetails?: BrevoTeamDetails;
+  isMemberSpecificPass?: boolean;
 }): Promise<BrevoResponse> {
-  const qrBuffer = await generateQrBuffer(qrToken);
-  const qrBase64 = qrBuffer.toString("base64");
-  const qrDataUrl = `data:image/png;base64,${qrBase64}`;
+  let qrBase64 = "";
+  let qrDataUrl = "";
+
+  if (qrToken) {
+    const qrBuffer = await generateQrBuffer(qrToken);
+    qrBase64 = qrBuffer.toString("base64");
+    qrDataUrl = `data:image/png;base64,${qrBase64}`;
+  }
 
   const formattedDate = new Date(eventStart).toLocaleDateString("en-IN", {
     weekday: "long",
@@ -325,10 +449,23 @@ export async function sendEventConfirmedPassEmail({
     minute: "2-digit",
   })}`;
 
+  const greeting = isTeamRegistration && teamDetails
+    ? `Hello <strong>${recipientName}</strong>, your team <strong>"${escapeHtml(teamDetails.teamName)}"</strong> is officially confirmed for <strong>${eventTitle}</strong>.`
+    : `Hello <strong>${recipientName}</strong>, your spot is confirmed for <strong>${eventTitle}</strong>.`;
+
+  const instructionsText = isTeamRegistration
+    ? (isMemberSpecificPass
+        ? `This is your personalized team entry pass for "${escapeHtml(teamDetails?.teamName || "your team")}". Present this QR code at the entrance check-in desk.`
+        : `This is your official team entry pass for "${escapeHtml(teamDetails?.teamName || "your team")}". Keep this handy for group verification at the check-in desk.`)
+    : "Please keep this email handy on your smartphone or carry a printed copy. The QR code will be scanned at the entrance.";
+
+  const teamSectionHtml = (isTeamRegistration && teamDetails) 
+    ? buildTeamDetailsSectionHtml(teamDetails, { hidePrivateContacts: false }) 
+    : "";
+
   const bodyHtml = `
     <p style="font-size: 15px; line-height: 1.6; color: #333333; margin-bottom: 24px;">
-      Hello <strong>${recipientName}</strong>, your spot is confirmed for <strong>${eventTitle}</strong>. 
-      Below is your official event entry QR pass. Please present this QR code at the check-in desk upon arrival.
+      ${greeting} Below is your official event entry QR pass.
     </p>
 
     <div class="field">
@@ -337,7 +474,7 @@ export async function sendEventConfirmedPassEmail({
     </div>
 
     <div class="field">
-      <div class="label">Registration ID</div>
+      <div class="label">${isTeamRegistration ? "Team Registration ID" : "Registration ID"}</div>
       <div class="val" style="color: #1461C5; font-family: monospace;">${registrationNumber}</div>
     </div>
 
@@ -367,39 +504,47 @@ export async function sendEventConfirmedPassEmail({
         : `
       <div class="field">
         <div class="label">Registration Type</div>
-        <div class="val">Complimentary / Free Entry</div>
+        <div class="val">${isTeamRegistration ? "Team Registration (Complimentary)" : "Complimentary / Free Entry"}</div>
       </div>
     `
     }
+
+    ${teamSectionHtml}
   `;
+
+  const subject = isTeamRegistration && teamDetails
+    ? `Your Team Entry Pass — ${eventTitle} [${teamDetails.teamName}] [${registrationNumber}]`
+    : `Your Event Entry Pass — ${eventTitle} [${registrationNumber}]`;
+
+  const attachments: BrevoAttachment[] = [];
+  if (qrBase64) {
+    attachments.push({
+      name: `Entry-Pass-${registrationNumber}.png`,
+      content: qrBase64,
+    });
+  }
 
   return await sendBrevoEmail({
     toEmail: recipientEmail,
     toName: recipientName,
-    subject: `Your Event Entry Pass — ${eventTitle} [${registrationNumber}]`,
+    subject,
     htmlContent: buildBrandedEmailHtml({
-      badge: "Official Entry Pass",
+      badge: isTeamRegistration ? "Official Team Pass" : "Official Entry Pass",
       badgeType: "green",
       title: eventTitle,
       preheader: `Your entry pass for ${eventTitle} is confirmed. Registration ID: ${registrationNumber}`,
       bodyHtml,
-      qrCodeDataUrl: qrDataUrl,
-      qrInstructions:
-        "Please keep this email handy on your smartphone or carry a printed copy. The QR code will be scanned once at the entrance.",
+      qrCodeDataUrl: qrDataUrl || undefined,
+      qrInstructions: instructionsText,
     }),
-    attachments: [
-      {
-        name: `Entry-Pass-${registrationNumber}.png`,
-        content: qrBase64,
-      },
-    ],
+    attachments,
     registrationId,
-    notificationType: "EVENT_QR_PASS",
+    notificationType: isTeamRegistration ? "TEAM_EVENT_QR_PASS" : "EVENT_QR_PASS",
   });
 }
 
 /**
- * Send Payment Submitted Email (for paid events, before admin verification)
+ * Send Payment Submitted Email (supports individual and team registrations)
  */
 export async function sendPaymentSubmittedEmail({
   recipientEmail,
@@ -408,6 +553,8 @@ export async function sendPaymentSubmittedEmail({
   registrationNumber,
   registrationId,
   paymentReference,
+  isTeamRegistration = false,
+  teamDetails,
 }: {
   recipientEmail: string;
   recipientName: string;
@@ -415,14 +562,24 @@ export async function sendPaymentSubmittedEmail({
   registrationNumber: string;
   registrationId: string;
   paymentReference?: string;
+  isTeamRegistration?: boolean;
+  teamDetails?: BrevoTeamDetails;
 }): Promise<BrevoResponse> {
+  const greeting = isTeamRegistration && teamDetails
+    ? `Hello <strong>${recipientName}</strong>, thank you for submitting the registration and payment proof for team <strong>"${escapeHtml(teamDetails.teamName)}"</strong> for <strong>${eventTitle}</strong>.`
+    : `Hello <strong>${recipientName}</strong>, thank you for submitting your payment proof for <strong>${eventTitle}</strong>.`;
+
+  const teamSectionHtml = (isTeamRegistration && teamDetails) 
+    ? buildTeamDetailsSectionHtml(teamDetails, { hidePrivateContacts: false }) 
+    : "";
+
   const bodyHtml = `
     <p style="font-size: 15px; line-height: 1.6; color: #333333; margin-bottom: 24px;">
-      Hello <strong>${recipientName}</strong>, thank you for submitting your payment proof for <strong>${eventTitle}</strong>.
+      ${greeting}
     </p>
 
     <div class="field">
-      <div class="label">Registration ID</div>
+      <div class="label">${isTeamRegistration ? "Team Registration ID" : "Registration ID"}</div>
       <div class="val" style="font-family: monospace;">${registrationNumber}</div>
     </div>
 
@@ -444,14 +601,20 @@ export async function sendPaymentSubmittedEmail({
 
     <div style="background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 12px; padding: 16px; margin-top: 24px; font-size: 13px; color: #92400E; line-height: 1.5;">
       <strong>Note on Entry Eligibility:</strong><br/>
-      Our finance and admin team is reviewing your transaction screenshot. Once verified, your active entry QR pass will be issued and emailed to you automatically.
+      Our finance and admin team is reviewing your transaction screenshot. Once verified, active entry QR pass(es) will be issued and emailed to ${isTeamRegistration ? "you and your registered team members" : "you"} automatically.
     </div>
+
+    ${teamSectionHtml}
   `;
+
+  const subject = isTeamRegistration && teamDetails
+    ? `Payment Verification Pending — ${eventTitle} [Team: ${teamDetails.teamName}] [${registrationNumber}]`
+    : `Payment Verification Pending — ${eventTitle} [${registrationNumber}]`;
 
   return await sendBrevoEmail({
     toEmail: recipientEmail,
     toName: recipientName,
-    subject: `Payment Verification Pending — ${eventTitle} [${registrationNumber}]`,
+    subject,
     htmlContent: buildBrandedEmailHtml({
       badge: "Payment Under Review",
       badgeType: "blue",
@@ -558,4 +721,195 @@ export async function sendVolunteerDecisionEmail({
     }),
     notificationType: "VOLUNTEER_DECISION",
   });
+}
+
+/**
+ * High-level orchestrator: Dispatches transactional registration emails via Brevo
+ * supporting both individual and team registrations with dynamic member roster rendering,
+ * deduplication, and conditional delivery.
+ */
+export async function dispatchRegistrationEmails({
+  event,
+  registration,
+  teamMembers = [],
+  isPaymentVerified = false,
+  paymentReference,
+}: {
+  event: {
+    id: string;
+    title: string;
+    venue: string;
+    event_start: string;
+    event_end: string;
+    is_paid: boolean;
+    fee_amount?: number;
+    team_checkin_mode?: "TEAM" | "INDIVIDUAL";
+    notify_all_team_members?: boolean;
+  };
+  registration: {
+    id: string;
+    registration_number: string;
+    participant_name: string;
+    participant_email: string;
+    participant_phone: string;
+    qr_token?: string;
+    is_team_registration?: boolean;
+    team_name?: string | null;
+  };
+  teamMembers?: Array<{
+    id?: string;
+    member_name: string;
+    email?: string | null;
+    phone?: string | null;
+    college?: string | null;
+    branch?: string | null;
+    year?: string | null;
+    is_leader?: boolean;
+    qr_token?: string | null;
+  }>;
+  isPaymentVerified?: boolean;
+  paymentReference?: string;
+}): Promise<{ totalSent: number; errors: string[] }> {
+  const isTeam = Boolean(
+    registration.is_team_registration ||
+    registration.team_name ||
+    (teamMembers && teamMembers.length > 0)
+  );
+
+  let teamDetails: BrevoTeamDetails | undefined = undefined;
+
+  if (isTeam) {
+    // Build canonical member list starting with team leader
+    const roster: BrevoTeamMember[] = [];
+
+    // Add leader
+    roster.push({
+      name: registration.participant_name,
+      email: registration.participant_email,
+      phone: registration.participant_phone,
+      isLeader: true,
+      qrToken: registration.qr_token,
+    });
+
+    // Add other members (filter out leader duplicate if present)
+    for (const m of teamMembers) {
+      const isLeaderDup = 
+        m.email && m.email.toLowerCase() === registration.participant_email.toLowerCase();
+      if (!isLeaderDup) {
+        roster.push({
+          name: m.member_name,
+          email: m.email || null,
+          phone: m.phone || null,
+          college: m.college || null,
+          branch: m.branch || null,
+          year: m.year || null,
+          isLeader: Boolean(m.is_leader),
+          qrToken: m.qr_token || null,
+        });
+      }
+    }
+
+    teamDetails = {
+      teamName: registration.team_name || `${registration.participant_name}'s Team`,
+      teamRegistrationId: registration.registration_number,
+      teamLeaderName: registration.participant_name,
+      teamLeaderEmail: registration.participant_email,
+      teamLeaderPhone: registration.participant_phone,
+      teamSize: roster.length,
+      members: roster,
+    };
+  }
+
+  const sentEmails = new Set<string>();
+  const errors: string[] = [];
+
+  const canReceivePass = !event.is_paid || isPaymentVerified;
+
+  // 1. Send to Team Leader / Main Participant
+  try {
+    if (canReceivePass) {
+      await sendEventConfirmedPassEmail({
+        recipientEmail: registration.participant_email,
+        recipientName: registration.participant_name,
+        eventTitle: event.title,
+        eventVenue: event.venue,
+        eventStart: event.event_start,
+        eventEnd: event.event_end,
+        registrationNumber: registration.registration_number,
+        registrationId: registration.id,
+        qrToken: registration.qr_token,
+        isPaid: event.is_paid,
+        feeAmount: event.fee_amount,
+        isTeamRegistration: isTeam,
+        teamDetails,
+        isMemberSpecificPass: false,
+      });
+    } else {
+      await sendPaymentSubmittedEmail({
+        recipientEmail: registration.participant_email,
+        recipientName: registration.participant_name,
+        eventTitle: event.title,
+        registrationNumber: registration.registration_number,
+        registrationId: registration.id,
+        paymentReference,
+        isTeamRegistration: isTeam,
+        teamDetails,
+      });
+    }
+    sentEmails.add(registration.participant_email.toLowerCase());
+  } catch (err: any) {
+    errors.push(`Leader email failed: ${err.message || err}`);
+  }
+
+  // 2. If Team Registration & member notifications enabled, send personalized emails to members
+  if (isTeam && event.notify_all_team_members !== false && teamMembers.length > 0) {
+    for (const member of teamMembers) {
+      if (!member.email || !member.email.trim()) continue;
+      const cleanEmail = member.email.trim().toLowerCase();
+
+      // Prevent duplicate emails
+      if (sentEmails.has(cleanEmail)) continue;
+
+      try {
+        if (canReceivePass) {
+          const passQrToken = (event.team_checkin_mode === "INDIVIDUAL" && member.qr_token)
+            ? member.qr_token
+            : registration.qr_token;
+
+          await sendEventConfirmedPassEmail({
+            recipientEmail: member.email,
+            recipientName: member.member_name,
+            eventTitle: event.title,
+            eventVenue: event.venue,
+            eventStart: event.event_start,
+            eventEnd: event.event_end,
+            registrationNumber: registration.registration_number,
+            registrationId: registration.id,
+            qrToken: passQrToken,
+            isPaid: event.is_paid,
+            feeAmount: event.fee_amount,
+            isTeamRegistration: true,
+            teamDetails,
+            isMemberSpecificPass: event.team_checkin_mode === "INDIVIDUAL",
+          });
+        } else {
+          await sendPaymentSubmittedEmail({
+            recipientEmail: member.email,
+            recipientName: member.member_name,
+            eventTitle: event.title,
+            registrationNumber: registration.registration_number,
+            registrationId: registration.id,
+            paymentReference,
+            isTeamRegistration: true,
+            teamDetails,
+          });
+        }
+        sentEmails.add(cleanEmail);
+      } catch (err: any) {
+        errors.push(`Member email (${member.email}) failed: ${err.message || err}`);
+      }
+    }
+  }
+
+  return { totalSent: sentEmails.size, errors };
 }

@@ -1020,3 +1020,69 @@ WITH CHECK (public.is_admin());
 CREATE POLICY "Approved scanning volunteers can insert scan logs"
 ON public.event_scan_logs FOR INSERT
 WITH CHECK (auth.uid() = scanned_by);
+
+
+-- =============================================================================
+-- SECTION 12: TEAM EVENT SUPPORT & TEAM MEMBER ROSTERS (2026-11-01)
+-- =============================================================================
+
+ALTER TABLE public.events
+ADD COLUMN IF NOT EXISTS is_team_event BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS min_team_size INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN IF NOT EXISTS max_team_size INTEGER NOT NULL DEFAULT 5,
+ADD COLUMN IF NOT EXISTS team_checkin_mode TEXT NOT NULL DEFAULT 'TEAM',
+ADD COLUMN IF NOT EXISTS notify_all_team_members BOOLEAN NOT NULL DEFAULT true;
+
+ALTER TABLE public.event_registrations
+ADD COLUMN IF NOT EXISTS is_team_registration BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS team_name TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_event_reg_team_name ON public.event_registrations(team_name);
+
+CREATE TABLE IF NOT EXISTS public.event_team_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  registration_id UUID NOT NULL REFERENCES public.event_registrations(id) ON DELETE CASCADE,
+  event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  member_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  college TEXT,
+  branch TEXT,
+  year TEXT,
+  is_leader BOOLEAN NOT NULL DEFAULT false,
+  qr_token TEXT UNIQUE,
+  qr_generated_at TIMESTAMPTZ DEFAULT NOW(),
+  is_checked_in BOOLEAN NOT NULL DEFAULT false,
+  checked_in_at TIMESTAMPTZ,
+  checked_in_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_members_registration ON public.event_team_members(registration_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_event ON public.event_team_members(event_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_email ON public.event_team_members(email);
+CREATE INDEX IF NOT EXISTS idx_team_members_qr_token ON public.event_team_members(qr_token);
+
+ALTER TABLE public.event_attendance
+ADD COLUMN IF NOT EXISTS team_member_id UUID REFERENCES public.event_team_members(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS team_name TEXT;
+
+ALTER TABLE public.event_scan_logs
+ADD COLUMN IF NOT EXISTS team_member_id UUID REFERENCES public.event_team_members(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS team_name TEXT;
+
+ALTER TABLE public.event_team_members ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admins have full access to event_team_members"
+ON public.event_team_members FOR ALL
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
+
+CREATE POLICY "Public can view team members for registrations"
+ON public.event_team_members FOR SELECT
+USING (true);
+
+CREATE POLICY "Public can insert team members during registration"
+ON public.event_team_members FOR INSERT
+WITH CHECK (true);

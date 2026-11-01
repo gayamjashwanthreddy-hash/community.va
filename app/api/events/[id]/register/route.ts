@@ -17,12 +17,23 @@ export async function POST(
       answers,
       paymentProofPath,
       paymentReference,
+      // Team registration fields
+      isTeamRegistration,
+      teamName,
+      teamMembers,
     } = body;
 
     // 1. Basic Field Validation
     if (!participantName || !participantEmail || !participantPhone) {
       return NextResponse.json(
         { success: false, message: "Full name, email address, and phone number are required." },
+        { status: 400 }
+      );
+    }
+
+    if (isTeamRegistration && (!teamName || !teamName.trim())) {
+      return NextResponse.json(
+        { success: false, message: "Team name is required for team registrations." },
         { status: 400 }
       );
     }
@@ -92,6 +103,9 @@ export async function POST(
       answers: answers || {},
       paymentProofPath,
       paymentReference,
+      isTeamRegistration: Boolean(isTeamRegistration),
+      teamName: teamName ? teamName.trim() : undefined,
+      teamMembers: Array.isArray(teamMembers) ? teamMembers : [],
     });
 
     if (!result.success) {

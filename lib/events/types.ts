@@ -75,6 +75,13 @@ export interface EventItem {
   payment_payee_name?: string;
   payment_qr_path?: string;
   payment_verification_required: boolean;
+
+  // Team Event Configuration
+  is_team_event?: boolean;
+  min_team_size?: number;
+  max_team_size?: number;
+  team_checkin_mode?: "TEAM" | "INDIVIDUAL";
+  notify_all_team_members?: boolean;
   
   created_by?: string;
   created_at: string;
@@ -86,6 +93,26 @@ export interface EventItem {
   registration_count?: number;
   pending_payments_count?: number;
   verified_payments_count?: number;
+}
+
+export interface EventTeamMember {
+  id: string;
+  registration_id: string;
+  event_id: string;
+  member_name: string;
+  email?: string | null;
+  phone?: string | null;
+  college?: string | null;
+  branch?: string | null;
+  year?: string | null;
+  is_leader: boolean;
+  qr_token?: string | null;
+  qr_generated_at?: string | null;
+  is_checked_in?: boolean;
+  checked_in_at?: string | null;
+  checked_in_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface EventRegistration {
@@ -101,6 +128,11 @@ export interface EventRegistration {
   internal_notes?: string | null;
   registered_at: string;
   updated_at: string;
+
+  // Team Registration Fields
+  is_team_registration?: boolean;
+  team_name?: string | null;
+  team_members?: EventTeamMember[];
 
   // QR Pass & Attendance Fields
   qr_token?: string;
@@ -158,6 +190,8 @@ export interface EventAttendance {
   id: string;
   event_id: string;
   registration_id: string;
+  team_member_id?: string | null;
+  team_name?: string | null;
   participant_id?: string | null;
   checked_in_by: string;
   checked_in_at: string;
@@ -165,6 +199,7 @@ export interface EventAttendance {
 
   // Joined fields
   registration?: EventRegistration;
+  team_member?: EventTeamMember;
   volunteer?: {
     full_name: string;
     email: string;
@@ -184,6 +219,8 @@ export interface EventScanLog {
   id: string;
   event_id: string;
   registration_id?: string | null;
+  team_member_id?: string | null;
+  team_name?: string | null;
   scanned_by: string;
   scan_result: string;
   token_hash: string;

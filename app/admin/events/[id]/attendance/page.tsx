@@ -45,6 +45,9 @@ interface ParticipantRecord {
   participant_name: string;
   participant_email: string;
   participant_phone: string;
+  is_team_registration?: boolean;
+  team_name?: string | null;
+  team_members_count?: number;
   payment_status: string;
   is_checked_in: boolean;
   checked_in_at?: string | null;
@@ -463,7 +466,14 @@ export default function AdminEventAttendancePage() {
                     filteredParticipants.map((p) => (
                       <tr key={p.id} className="hover:bg-brand-bg/40 transition-colors">
                         <td className="py-4 px-6">
-                          <div className="font-bold text-brand-dark text-sm">{p.participant_name}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-brand-dark text-sm">{p.participant_name}</span>
+                            {p.is_team_registration && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-brand-blue border border-blue-200">
+                                Team: {p.team_name || "Squad"} ({p.team_members_count || 1} members)
+                              </span>
+                            )}
+                          </div>
                           <div className="text-brand-grey">
                             {p.participant_email} • {p.participant_phone}
                           </div>

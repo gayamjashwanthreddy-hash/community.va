@@ -123,14 +123,36 @@ export async function POST(
       );
     }
 
-    // Fetch Registration by Token
-    const { data: reg, error: regErr } = await adminClient
-      .from("event_registrations")
-      .select("*, payment:event_payments(*)")
+    // Fetch Registration or Team Member by Token
+    let reg: any = null;
+    let member: any = null;
+    let isMemberToken = false;
+
+    const { data: dbMember } = await adminClient
+      .from("event_team_members")
+      .select("*")
       .eq("qr_token", cleanToken)
       .single();
 
-    if (regErr || !reg) {
+    if (dbMember) {
+      member = dbMember;
+      isMemberToken = true;
+      const { data: parentReg } = await adminClient
+        .from("event_registrations")
+        .select("*, payment:event_payments(*)")
+        .eq("id", dbMember.registration_id)
+        .single();
+      reg = parentReg;
+    } else {
+      const { data: dbReg } = await adminClient
+        .from("event_registrations")
+        .select("*, payment:event_payments(*)")
+        .eq("qr_token", cleanToken)
+        .single();
+      reg = dbReg;
+    }
+
+    if (!reg) {
       await adminClient.from("event_scan_logs").insert({
         event_id: eventId,
         scanned_by: user.id,
@@ -151,6 +173,8 @@ export async function POST(
       await adminClient.from("event_scan_logs").insert({
         event_id: eventId,
         registration_id: reg.id,
+        team_member_id: isMemberToken ? member.id : null,
+        team_name: reg.team_name || null,
         scanned_by: user.id,
         scan_result: "WRONG EVENT",
         token_hash: tokenHash,
@@ -169,6 +193,8 @@ export async function POST(
       await adminClient.from("event_scan_logs").insert({
         event_id: eventId,
         registration_id: reg.id,
+        team_member_id: isMemberToken ? member.id : null,
+        team_name: reg.team_name || null,
         scanned_by: user.id,
         scan_result: "REGISTRATION CANCELLED",
         token_hash: tokenHash,
@@ -189,6 +215,8 @@ export async function POST(
         await adminClient.from("event_scan_logs").insert({
           event_id: eventId,
           registration_id: reg.id,
+          team_member_id: isMemberToken ? member.id : null,
+          team_name: reg.team_name || null,
           scanned_by: user.id,
           scan_result: "PAYMENT NOT VERIFIED",
           token_hash: tokenHash,
@@ -201,7 +229,8 @@ export async function POST(
             success: false,
             result: "PAYMENT NOT VERIFIED",
             message: "Payment for this registration has not been verified by an administrator.",
-            participantName: reg.participant_name,
+            participantName: isMemberToken ? member.member_name : reg.participant_name,
+            teamName: reg.team_name,
             registrationNumber: reg.registration_number,
           },
           { status: 400 }
@@ -210,17 +239,41 @@ export async function POST(
     }
 
     // Check Existing Attendance
-    const { data: existingAttendance } = await adminClient
-      .from("event_attendance")
-      .select("id, checked_in_at")
-      .eq("event_id", eventId)
-      .eq("registration_id", reg.id)
-      .single();
+    let alreadyCheckedIn = false;
+    let checkedInAt: string | null = null;
 
-    if (existingAttendance) {
+    if (isMemberToken) {
+      const { data: memberAttendance } = await adminClient
+        .from("event_attendance")
+        .select("id, checked_in_at")
+        .eq("event_id", eventId)
+        .eq("team_member_id", member.id)
+        .single();
+
+      if (memberAttendance) {
+        alreadyCheckedIn = true;
+        checkedInAt = memberAttendance.checked_in_at;
+      }
+    } else {
+      const { data: regAttendance } = await adminClient
+        .from("event_attendance")
+        .select("id, checked_in_at")
+        .eq("event_id", eventId)
+        .eq("registration_id", reg.id)
+        .single();
+
+      if (regAttendance) {
+        alreadyCheckedIn = true;
+        checkedInAt = regAttendance.checked_in_at;
+      }
+    }
+
+    if (alreadyCheckedIn) {
       await adminClient.from("event_scan_logs").insert({
         event_id: eventId,
         registration_id: reg.id,
+        team_member_id: isMemberToken ? member.id : null,
+        team_name: reg.team_name || null,
         scanned_by: user.id,
         scan_result: "ALREADY CHECKED IN",
         token_hash: tokenHash,
@@ -232,33 +285,44 @@ export async function POST(
         {
           success: false,
           result: "ALREADY CHECKED IN",
-          message: "This participant has already been checked in!",
-          participantName: reg.participant_name,
+          message: isMemberToken 
+            ? "This team member has already been checked in!" 
+            : "This participant / team has already been checked in!",
+          participantName: isMemberToken ? member.member_name : reg.participant_name,
+          isTeam: Boolean(reg.is_team_registration),
+          teamName: reg.team_name,
           registrationNumber: reg.registration_number,
-          checkedInAt: existingAttendance.checked_in_at,
+          checkedInAt,
         },
         { status: 400 }
       );
     }
 
     // Atomic Insertion into event_attendance
-    const { error: attendErr } = await adminClient.from("event_attendance").insert({
+    const attendancePayload: any = {
       event_id: eventId,
       registration_id: reg.id,
       participant_id: reg.user_id || null,
+      team_name: reg.team_name || null,
       checked_in_by: user.id,
       check_in_method: scanMethod === "MANUAL" ? "MANUAL_ENTRY" : "QR_SCAN",
-    });
+    };
+
+    if (isMemberToken) {
+      attendancePayload.team_member_id = member.id;
+    }
+
+    const { error: attendErr } = await adminClient.from("event_attendance").insert(attendancePayload);
 
     if (attendErr) {
       if (attendErr.code === "23505") {
-        // Concurrency duplicate
         return NextResponse.json(
           {
             success: false,
             result: "ALREADY CHECKED IN",
             message: "Simultaneous check-in detected: already checked in.",
-            participantName: reg.participant_name,
+            participantName: isMemberToken ? member.member_name : reg.participant_name,
+            teamName: reg.team_name,
             registrationNumber: reg.registration_number,
           },
           { status: 400 }
@@ -267,10 +331,34 @@ export async function POST(
       throw attendErr;
     }
 
+    // Update status on team member if member pass
+    if (isMemberToken) {
+      await adminClient
+        .from("event_team_members")
+        .update({
+          is_checked_in: true,
+          checked_in_at: new Date().toISOString(),
+          checked_in_by: user.id,
+        })
+        .eq("id", member.id);
+    } else if (reg.is_team_registration) {
+      // Team-level pass check-in: mark all team members checked in
+      await adminClient
+        .from("event_team_members")
+        .update({
+          is_checked_in: true,
+          checked_in_at: new Date().toISOString(),
+          checked_in_by: user.id,
+        })
+        .eq("registration_id", reg.id);
+    }
+
     // Record Successful Scan
     await adminClient.from("event_scan_logs").insert({
       event_id: eventId,
       registration_id: reg.id,
+      team_member_id: isMemberToken ? member.id : null,
+      team_name: reg.team_name || null,
       scanned_by: user.id,
       scan_result: "CHECK-IN SUCCESSFUL",
       token_hash: tokenHash,
@@ -281,7 +369,9 @@ export async function POST(
       success: true,
       result: "CHECK-IN SUCCESSFUL",
       message: "Check-in confirmed successfully!",
-      participantName: reg.participant_name,
+      participantName: isMemberToken ? member.member_name : reg.participant_name,
+      isTeam: Boolean(reg.is_team_registration),
+      teamName: reg.team_name,
       registrationNumber: reg.registration_number,
       checkedInAt: new Date().toISOString(),
     });

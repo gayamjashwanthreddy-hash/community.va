@@ -73,6 +73,8 @@ export async function GET(
       return {
         eventName: event.title,
         registrationId: r.registration_number,
+        registrationType: r.is_team_registration ? "TEAM" : "INDIVIDUAL",
+        teamName: r.team_name || "—",
         name: r.participant_name,
         email: r.participant_email,
         phone: r.participant_phone || "—",
@@ -97,7 +99,9 @@ export async function GET(
     const headers = [
       "Event Name",
       "Registration ID",
-      "Participant Name",
+      "Registration Type",
+      "Team Name",
+      "Participant / Leader Name",
       "Email",
       "Phone",
       "College / Institution",
@@ -116,6 +120,8 @@ export async function GET(
         [
           escapeCsv(row.eventName),
           escapeCsv(row.registrationId),
+          escapeCsv(row.registrationType),
+          escapeCsv(row.teamName),
           escapeCsv(row.name),
           escapeCsv(row.email),
           escapeCsv(row.phone),

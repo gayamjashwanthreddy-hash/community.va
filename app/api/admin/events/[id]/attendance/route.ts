@@ -50,12 +50,13 @@ export async function GET(
       );
     }
 
-    // 2. Fetch all Registrations with Payments
+    // 2. Fetch all Registrations with Payments and Team Members
     const { data: registrations } = await adminClient
       .from("event_registrations")
       .select(`
         *,
-        payment:event_payments(*)
+        payment:event_payments(*),
+        team_members:event_team_members(*)
       `)
       .eq("event_id", eventId)
       .order("registered_at", { ascending: false });
@@ -163,6 +164,10 @@ export async function GET(
         participant_name: r.participant_name,
         participant_email: r.participant_email,
         participant_phone: r.participant_phone,
+        is_team_registration: Boolean(r.is_team_registration),
+        team_name: r.team_name || null,
+        team_members_count: (r.team_members || []).length,
+        team_members: r.team_members || [],
         answers: r.answers,
         registered_at: r.registered_at,
         payment_status: pay?.payment_status || (event.is_paid ? "PAYMENT_PENDING" : "NOT_REQUIRED"),

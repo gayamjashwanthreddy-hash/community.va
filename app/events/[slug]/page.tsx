@@ -21,7 +21,10 @@ import {
   FileCheck,
   Info,
   X,
-  Share2
+  Share2,
+  Users,
+  UserPlus,
+  Trash2
 } from "lucide-react";
 import CinematicNavbar from "@/components/motion/CinematicNavbar";
 import { EventItem, EventFormQuestion, EventRegistration } from "@/lib/events/types";
@@ -40,6 +43,19 @@ export default function EventDetailPage() {
   const [participantEmail, setParticipantEmail] = useState("");
   const [participantPhone, setParticipantPhone] = useState("");
   const [answers, setAnswers] = useState<Record<string, any>>({});
+
+  // Team Registration Fields
+  const [isTeamRegistration, setIsTeamRegistration] = useState(false);
+  const [teamName, setTeamName] = useState("");
+  const [teamMembers, setTeamMembers] = useState<Array<{
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    college: string;
+    branch: string;
+    year: string;
+  }>>([]);
 
   // Payment Proof Fields
   const [paymentReference, setPaymentReference] = useState("");
@@ -92,6 +108,9 @@ export default function EventDetailPage() {
         const data = await res.json();
         if (data.success && data.event) {
           setEvent(data.event);
+          if (data.event.is_team_event) {
+            setIsTeamRegistration(true);
+          }
         } else {
           setErrorMsg("Event could not be found or has ended.");
         }
@@ -159,6 +178,32 @@ export default function EventDetailPage() {
     }
   };
 
+  // Team Member Management
+  const handleAddTeamMember = () => {
+    const max = event?.max_team_size || 5;
+    if (teamMembers.length + 1 >= max) return;
+    setTeamMembers(prev => [
+      ...prev,
+      {
+        id: `m-${Date.now()}-${prev.length + 1}`,
+        name: "",
+        email: "",
+        phone: "",
+        college: "",
+        branch: "",
+        year: "",
+      }
+    ]);
+  };
+
+  const handleRemoveTeamMember = (id: string) => {
+    setTeamMembers(prev => prev.filter(m => m.id !== id));
+  };
+
+  const handleMemberFieldChange = (id: string, field: string, val: string) => {
+    setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, [field]: val } : m));
+  };
+
   const handleSubmitRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!event) return;
@@ -168,6 +213,21 @@ export default function EventDetailPage() {
     if (!participantName.trim() || !participantEmail.trim() || !participantPhone.trim()) {
       setErrorMsg("Please provide your full name, email address, and phone number.");
       return;
+    }
+
+    // Validate Team Fields if team registration
+    if (isTeamRegistration) {
+      if (!teamName.trim()) {
+        setErrorMsg("Please enter your official team name.");
+        return;
+      }
+
+      for (let i = 0; i < teamMembers.length; i++) {
+        if (!teamMembers[i].name.trim()) {
+          setErrorMsg(`Please provide a name for Team Member ${i + 2}.`);
+          return;
+        }
+      }
     }
 
     // Validate Required Questions
@@ -202,6 +262,17 @@ export default function EventDetailPage() {
           answers,
           paymentProofPath: event.is_paid ? paymentProofPath : null,
           paymentReference: event.is_paid ? paymentReference : null,
+          isTeamRegistration,
+          teamName: isTeamRegistration ? teamName : undefined,
+          teamMembers: isTeamRegistration ? teamMembers.map(m => ({
+            name: m.name.trim(),
+            email: m.email.trim() || undefined,
+            phone: m.phone.trim() || undefined,
+            college: m.college.trim() || undefined,
+            branch: m.branch.trim() || undefined,
+            year: m.year.trim() || undefined,
+            isLeader: false,
+          })) : [],
         }),
       });
 
@@ -299,13 +370,27 @@ export default function EventDetailPage() {
             {/* Registration Pass Box */}
             <div className="p-6 rounded-2xl bg-neutral-50 border border-brand-border text-left space-y-3 font-mono">
               <div className="flex items-center justify-between border-b border-brand-border pb-2.5">
-                <span className="text-[11px] text-brand-muted uppercase font-bold">Registration Pass ID</span>
+                <span className="text-[11px] text-brand-muted uppercase font-bold">
+                  {registeredSuccess.is_team_registration ? "Team Registration Pass ID" : "Registration Pass ID"}
+                </span>
                 <span className="text-sm font-extrabold text-brand-blue">{registeredSuccess.registration_number}</span>
               </div>
+              {registeredSuccess.team_name && (
+                <div className="flex items-center justify-between text-xs border-b border-brand-border pb-2">
+                  <span className="text-brand-muted">Team Name</span>
+                  <span className="font-extrabold text-brand-dark uppercase tracking-tight text-brand-blue">{registeredSuccess.team_name}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-xs">
-                <span className="text-brand-muted">Participant</span>
+                <span className="text-brand-muted">{registeredSuccess.is_team_registration ? "Team Leader" : "Participant"}</span>
                 <span className="font-bold text-brand-dark">{registeredSuccess.participant_name}</span>
               </div>
+              {registeredSuccess.team_members && registeredSuccess.team_members.length > 0 && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-brand-muted">Team Size</span>
+                  <span className="font-bold text-brand-dark">{registeredSuccess.team_members.length} Members</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-xs">
                 <span className="text-brand-muted">Schedule</span>
                 <span className="font-bold text-brand-dark">
@@ -564,16 +649,62 @@ export default function EventDetailPage() {
                       </div>
                     )}
 
-                    {/* Step 1: Participant Identity */}
+                    {/* Registration Type Toggle: Individual vs Team */}
+                    <div className="p-1.5 bg-neutral-100 rounded-2xl flex items-center gap-2 border border-brand-border">
+                      <button
+                        type="button"
+                        onClick={() => setIsTeamRegistration(false)}
+                        className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                          !isTeamRegistration 
+                            ? "bg-brand-dark text-white shadow-xs" 
+                            : "text-brand-muted hover:text-brand-dark"
+                        }`}
+                      >
+                        Individual Registration
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsTeamRegistration(true)}
+                        className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                          isTeamRegistration 
+                            ? "bg-brand-blue text-white shadow-xs" 
+                            : "text-brand-muted hover:text-brand-dark"
+                        }`}
+                      >
+                        Team Registration
+                      </button>
+                    </div>
+
+                    {/* Team Name Input */}
+                    {isTeamRegistration && (
+                      <div className="space-y-1.5 p-4 rounded-2xl bg-blue-50/60 border border-blue-200 animate-fadeIn">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-blue">
+                          Team Name <span className="text-brand-red">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required={isTeamRegistration}
+                          value={teamName}
+                          onChange={(e) => setTeamName(e.target.value)}
+                          placeholder="e.g. Code Innovators / Cyber Squad"
+                          className="w-full px-3.5 py-2 text-xs border border-blue-200 bg-white rounded-lg outline-none focus:border-brand-blue font-bold text-brand-dark"
+                        />
+                        <p className="text-[11px] text-blue-700/80">
+                          Enter your group or squad name. Team members will be organized under this name.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Step 1: Participant Identity (or Team Leader) */}
                     <div className="space-y-4 pt-2 border-t border-brand-border">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-brand-dark flex items-center gap-2">
-                        <span>1. Your Information</span>
+                        <span>{isTeamRegistration ? "1. Team Leader Information" : "1. Your Information"}</span>
                       </h3>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="sm:col-span-2 space-y-1">
                           <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-muted">
-                            Full Name <span className="text-brand-red">*</span>
+                            {isTeamRegistration ? "Team Leader Name" : "Full Name"} <span className="text-brand-red">*</span>
                           </label>
                           <input
                             type="text"
@@ -587,7 +718,7 @@ export default function EventDetailPage() {
 
                         <div className="space-y-1">
                           <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-muted">
-                            Email Address <span className="text-brand-red">*</span>
+                            {isTeamRegistration ? "Leader Email" : "Email Address"} <span className="text-brand-red">*</span>
                           </label>
                           <input
                             type="email"
@@ -601,7 +732,7 @@ export default function EventDetailPage() {
 
                         <div className="space-y-1">
                           <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-muted">
-                            Mobile Number <span className="text-brand-red">*</span>
+                            {isTeamRegistration ? "Leader Mobile" : "Mobile Number"} <span className="text-brand-red">*</span>
                           </label>
                           <input
                             type="tel"
@@ -613,6 +744,127 @@ export default function EventDetailPage() {
                           />
                         </div>
                       </div>
+
+                      {/* Additional Team Members Roster */}
+                      {isTeamRegistration && (
+                        <div className="space-y-4 pt-4 border-t border-brand-border">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-brand-dark flex items-center gap-1.5">
+                                <Users className="w-3.5 h-3.5 text-brand-blue" />
+                                <span>Teammates Roster ({teamMembers.length + 1} Total)</span>
+                              </h4>
+                              <p className="text-[11px] text-brand-muted">
+                                Add your registered squad members.
+                              </p>
+                            </div>
+                            {teamMembers.length + 1 < (event.max_team_size || 5) && (
+                              <button
+                                type="button"
+                                onClick={handleAddTeamMember}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-brand-dark text-xs font-bold transition-all"
+                              >
+                                <UserPlus className="w-3.5 h-3.5 text-brand-blue" />
+                                <span>Add Teammate</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {teamMembers.length === 0 ? (
+                            <div className="p-4 rounded-xl border border-dashed border-brand-border text-center text-xs text-brand-muted">
+                              No additional team members added. Click &ldquo;Add Teammate&rdquo; above to register your squad members.
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {teamMembers.map((member, mIdx) => (
+                                <div key={member.id} className="p-3.5 rounded-xl border border-brand-border bg-neutral-50/70 space-y-3">
+                                  <div className="flex items-center justify-between border-b border-brand-border pb-2">
+                                    <span className="text-[11px] font-bold text-brand-dark uppercase tracking-wider font-mono">
+                                      Member {mIdx + 2}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveTeamMember(member.id)}
+                                      className="text-brand-red hover:text-red-700 text-xs flex items-center gap-1"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span>Remove</span>
+                                    </button>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="sm:col-span-2">
+                                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-muted">
+                                        Member Name <span className="text-brand-red">*</span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        required
+                                        value={member.name}
+                                        onChange={(e) => handleMemberFieldChange(member.id, "name", e.target.value)}
+                                        placeholder="e.g. Priya Varma"
+                                        className="w-full px-3 py-1.5 text-xs border border-brand-border rounded-lg bg-white outline-none focus:border-brand-dark font-medium"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-muted">
+                                        Email Address
+                                      </label>
+                                      <input
+                                        type="email"
+                                        value={member.email}
+                                        onChange={(e) => handleMemberFieldChange(member.id, "email", e.target.value)}
+                                        placeholder="priya@example.com"
+                                        className="w-full px-3 py-1.5 text-xs border border-brand-border rounded-lg bg-white outline-none focus:border-brand-dark font-medium"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-muted">
+                                        Mobile Number
+                                      </label>
+                                      <input
+                                        type="tel"
+                                        value={member.phone}
+                                        onChange={(e) => handleMemberFieldChange(member.id, "phone", e.target.value)}
+                                        placeholder="+91 98490 11111"
+                                        className="w-full px-3 py-1.5 text-xs border border-brand-border rounded-lg bg-white outline-none focus:border-brand-dark font-medium"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-muted">
+                                        College / Institution
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={member.college}
+                                        onChange={(e) => handleMemberFieldChange(member.id, "college", e.target.value)}
+                                        placeholder="e.g. Osmania / CBIT"
+                                        className="w-full px-3 py-1.5 text-xs border border-brand-border rounded-lg bg-white outline-none focus:border-brand-dark font-medium"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-muted">
+                                        Branch & Year
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={member.branch}
+                                        onChange={(e) => handleMemberFieldChange(member.id, "branch", e.target.value)}
+                                        placeholder="e.g. CSE 3rd Year"
+                                        className="w-full px-3 py-1.5 text-xs border border-brand-border rounded-lg bg-white outline-none focus:border-brand-dark font-medium"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Step 2: Dynamic Questions Configured by Admin */}

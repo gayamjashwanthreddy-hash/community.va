@@ -3,6 +3,7 @@ import {
   EventItem, 
   EventFormQuestion, 
   EventRegistration, 
+  EventTeamMember,
   EventPayment, 
   EventStatus, 
   PaymentStatus,
@@ -17,7 +18,8 @@ import {
 import { generateQrVerificationToken } from "@/lib/qr";
 import { 
   sendEventConfirmedPassEmail, 
-  sendPaymentSubmittedEmail 
+  sendPaymentSubmittedEmail,
+  dispatchRegistrationEmails
 } from "@/lib/brevo";
 
 // Built-in verified baseline events for seamless initial launch
@@ -46,6 +48,11 @@ const INITIAL_SEED_EVENTS: EventItem[] = [
     payment_payee_name: "COMMUNITY VA YOUTH FORUM",
     payment_qr_path: "/logos/community-va-logo.png",
     payment_verification_required: true,
+    is_team_event: true,
+    min_team_size: 2,
+    max_team_size: 5,
+    team_checkin_mode: "TEAM",
+    notify_all_team_members: true,
     created_at: "2026-10-15T10:00:00Z",
     updated_at: "2026-10-15T10:00:00Z",
     questions: [
@@ -586,6 +593,18 @@ export async function registerParticipant(params: {
   answers: Record<string, any>;
   paymentProofPath?: string;
   paymentReference?: string;
+  // Team support
+  isTeamRegistration?: boolean;
+  teamName?: string;
+  teamMembers?: Array<{
+    name: string;
+    email?: string;
+    phone?: string;
+    college?: string;
+    branch?: string;
+    year?: string;
+    isLeader?: boolean;
+  }>;
 }): Promise<{ success: boolean; registration?: EventRegistration; error?: string; alreadyRegistered?: boolean }> {
   const event = await getEventBySlugOrId(params.eventId);
   if (!event) {
@@ -625,6 +644,49 @@ export async function registerParticipant(params: {
   const regId = `reg-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
   const qrToken = generateQrVerificationToken();
 
+  const isTeam = Boolean(params.isTeamRegistration || params.teamName);
+  const finalTeamName = isTeam ? (params.teamName || `${params.participantName}'s Team`) : null;
+
+  // Prepare team members if team registration
+  const preparedMembers: EventTeamMember[] = [];
+  if (isTeam) {
+    // Add leader
+    preparedMembers.push({
+      id: `tm-${Date.now().toString(36)}-leader`,
+      registration_id: regId,
+      event_id: event.id,
+      member_name: params.participantName,
+      email: params.participantEmail,
+      phone: params.participantPhone,
+      is_leader: true,
+      qr_token: qrToken,
+      qr_generated_at: new Date().toISOString(),
+      is_checked_in: false,
+    });
+
+    if (params.teamMembers && params.teamMembers.length > 0) {
+      for (const m of params.teamMembers) {
+        // Skip duplicate of leader if entered twice
+        if (m.email && m.email.toLowerCase() === params.participantEmail.toLowerCase()) continue;
+        preparedMembers.push({
+          id: `tm-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+          registration_id: regId,
+          event_id: event.id,
+          member_name: m.name,
+          email: m.email || null,
+          phone: m.phone || null,
+          college: m.college || null,
+          branch: m.branch || null,
+          year: m.year || null,
+          is_leader: Boolean(m.isLeader),
+          qr_token: generateQrVerificationToken(),
+          qr_generated_at: new Date().toISOString(),
+          is_checked_in: false,
+        });
+      }
+    }
+  }
+
   let payment: EventPayment | null = null;
   if (event.is_paid) {
     payment = {
@@ -653,6 +715,9 @@ export async function registerParticipant(params: {
     participant_phone: params.participantPhone,
     answers: params.answers,
     registration_status: "CONFIRMED",
+    is_team_registration: isTeam,
+    team_name: finalTeamName,
+    team_members: preparedMembers,
     qr_token: qrToken,
     qr_generated_at: new Date().toISOString(),
     registered_at: new Date().toISOString(),
@@ -676,12 +741,39 @@ export async function registerParticipant(params: {
         answers: params.answers,
         registration_status: "CONFIRMED",
         qr_token: qrToken,
+        is_team_registration: isTeam,
+        team_name: finalTeamName,
       })
       .select()
       .single();
 
     if (!regErr && dbReg) {
       registration.id = dbReg.id;
+
+      // Insert Team Members if team registration
+      if (isTeam && preparedMembers.length > 0) {
+        const memberRows = preparedMembers.map(m => ({
+          registration_id: dbReg.id,
+          event_id: event.id,
+          member_name: m.member_name,
+          email: m.email || null,
+          phone: m.phone || null,
+          college: m.college || null,
+          branch: m.branch || null,
+          year: m.year || null,
+          is_leader: m.is_leader,
+          qr_token: m.qr_token,
+        }));
+
+        const { data: dbMembers } = await adminClient
+          .from("event_team_members")
+          .insert(memberRows)
+          .select();
+
+        if (dbMembers) {
+          registration.team_members = dbMembers;
+        }
+      }
 
       if (event.is_paid && payment) {
         payment.registration_id = dbReg.id;
@@ -715,33 +807,15 @@ export async function registerParticipant(params: {
   list.push(registration);
   inMemoryRegistrations.set(event.id, list);
 
-  // 8. Trigger Brevo Transactional Email Notification
+  // 8. Trigger Brevo Transactional Email Notification (Shared Orchestrator)
   try {
-    if (!event.is_paid) {
-      // Free event: QR pass is immediately active and sent
-      sendEventConfirmedPassEmail({
-        recipientEmail: registration.participant_email,
-        recipientName: registration.participant_name,
-        eventTitle: event.title,
-        eventVenue: event.venue,
-        eventStart: event.event_start,
-        eventEnd: event.event_end,
-        registrationNumber: registration.registration_number,
-        registrationId: registration.id,
-        qrToken: qrToken,
-        isPaid: false,
-      }).catch(err => console.error("[Brevo Free Event QR Email]", err));
-    } else {
-      // Paid event: Send payment proof submission acknowledgement (pass active only after admin verification)
-      sendPaymentSubmittedEmail({
-        recipientEmail: registration.participant_email,
-        recipientName: registration.participant_name,
-        eventTitle: event.title,
-        registrationNumber: registration.registration_number,
-        registrationId: registration.id,
-        paymentReference: params.paymentReference,
-      }).catch(err => console.error("[Brevo Payment Submitted Email]", err));
-    }
+    dispatchRegistrationEmails({
+      event,
+      registration,
+      teamMembers: registration.team_members || preparedMembers,
+      isPaymentVerified: false,
+      paymentReference: params.paymentReference,
+    }).catch(err => console.error("[dispatchRegistrationEmails Error]", err));
   } catch (err) {
     console.error("[Email Notification Error]", err);
   }
@@ -757,7 +831,8 @@ export async function getEventRegistrations(eventId: string): Promise<EventRegis
       .from("event_registrations")
       .select(`
         *,
-        payment:event_payments(*)
+        payment:event_payments(*),
+        team_members:event_team_members(*)
       `)
       .eq("event_id", eventId)
       .order("registered_at", { ascending: false });
@@ -765,7 +840,8 @@ export async function getEventRegistrations(eventId: string): Promise<EventRegis
     if (!error && data && data.length > 0) {
       return data.map((r: any) => ({
         ...r,
-        payment: Array.isArray(r.payment) ? r.payment[0] : r.payment
+        payment: Array.isArray(r.payment) ? r.payment[0] : r.payment,
+        team_members: r.team_members || []
       }));
     }
   } catch (err) {
@@ -866,20 +942,28 @@ export async function updatePaymentVerification(params: {
           .from("event_registrations")
           .update({ qr_token: activeQrToken })
           .eq("id", targetReg.id);
+        targetReg.qr_token = activeQrToken;
       }
 
-      sendEventConfirmedPassEmail({
-        recipientEmail: targetReg.participant_email,
-        recipientName: targetReg.participant_name,
-        eventTitle: targetEvent.title,
-        eventVenue: targetEvent.venue,
-        eventStart: targetEvent.event_start,
-        eventEnd: targetEvent.event_end,
-        registrationNumber: targetReg.registration_number,
-        registrationId: targetReg.id,
-        qrToken: activeQrToken,
-        isPaid: true,
-        feeAmount: targetEvent.fee_amount,
+      // Fetch team members if team registration
+      let teamMembers = targetReg.team_members || [];
+      if (targetReg.is_team_registration && (!teamMembers || teamMembers.length === 0)) {
+        try {
+          const { data: dbMembers } = await adminClient
+            .from("event_team_members")
+            .select("*")
+            .eq("registration_id", targetReg.id);
+          if (dbMembers) teamMembers = dbMembers;
+        } catch (e) {
+          console.warn("[updatePaymentVerification] Could not fetch team members:", e);
+        }
+      }
+
+      dispatchRegistrationEmails({
+        event: targetEvent,
+        registration: targetReg,
+        teamMembers,
+        isPaymentVerified: true,
       }).catch(err => console.error("[Brevo Payment Verified QR Email]", err));
     } else if (params.action === "REJECT" || params.action === "REQUEST_NEW") {
       sendPaymentRejectedEmail({
