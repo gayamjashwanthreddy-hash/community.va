@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import CinematicNavbar from "@/components/motion/CinematicNavbar";
 import { EventItem, EventFormQuestion, EventRegistration } from "@/lib/events/types";
+import QRCode from "qrcode";
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -50,6 +51,38 @@ export default function EventDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [registeredSuccess, setRegisteredSuccess] = useState<EventRegistration | null>(null);
   const [alreadyRegisteredNotice, setAlreadyRegisteredNotice] = useState<EventRegistration | null>(null);
+  const [passQrDataUrl, setPassQrDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function makeQr() {
+      const activeReg = registeredSuccess || alreadyRegisteredNotice;
+      if (!activeReg || !activeReg.qr_token) {
+        setPassQrDataUrl(null);
+        return;
+      }
+
+      // Check payment status if paid event
+      const pay = activeReg.payment;
+      const isEligible = !event?.is_paid || pay?.payment_status === "PAYMENT_VERIFIED";
+
+      if (isEligible) {
+        try {
+          const url = await QRCode.toDataURL(activeReg.qr_token, {
+            width: 240,
+            margin: 2,
+            color: { dark: "#111111", light: "#FFFFFF" }
+          });
+          setPassQrDataUrl(url);
+        } catch (e) {
+          console.error("[QR Render Error]", e);
+        }
+      } else {
+        setPassQrDataUrl(null);
+      }
+    }
+
+    makeQr();
+  }, [registeredSuccess, alreadyRegisteredNotice, event]);
 
   useEffect(() => {
     async function loadEvent() {
@@ -291,11 +324,26 @@ export default function EventDetailPage() {
               )}
             </div>
 
-            {event.is_paid && (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-left text-xs text-amber-900 leading-relaxed">
-                <strong>Next Step:</strong> Your uploaded payment screenshot is being reviewed by our administrative team. Once verified against our bank UPI ledger, you will receive your verified entry confirmation email.
+            {/* QR Pass Display or Payment Notice */}
+            {passQrDataUrl ? (
+              <div className="p-6 rounded-2xl bg-white border-2 border-dashed border-brand-blue text-center">
+                <span className="text-[11px] font-mono font-bold uppercase text-brand-blue tracking-wider block mb-2">
+                  Official Entry QR Pass (Active)
+                </span>
+                <img
+                  src={passQrDataUrl}
+                  alt="Entry QR Pass"
+                  className="w-48 h-48 mx-auto rounded-xl border border-brand-border shadow-xs"
+                />
+                <p className="text-[11px] font-mono text-brand-muted mt-2">
+                  Present this QR code to the entrance desk scanner for instant check-in.
+                </p>
               </div>
-            )}
+            ) : event.is_paid ? (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-left text-xs text-amber-900 leading-relaxed">
+                <strong>Next Step:</strong> Your uploaded payment screenshot is being reviewed by our administrative team. Once verified against our bank UPI ledger, your entry QR pass will be activated and emailed to you.
+              </div>
+            ) : null}
 
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
@@ -348,7 +396,36 @@ export default function EventDetailPage() {
               </div>
             </div>
 
-            <div className="pt-2">
+            {/* QR Pass if eligible */}
+            {passQrDataUrl ? (
+              <div className="p-6 rounded-2xl bg-white border-2 border-dashed border-brand-blue text-center">
+                <span className="text-[11px] font-mono font-bold uppercase text-brand-blue tracking-wider block mb-2">
+                  Official Entry QR Pass (Active)
+                </span>
+                <img
+                  src={passQrDataUrl}
+                  alt="Entry QR Pass"
+                  className="w-48 h-48 mx-auto rounded-xl border border-brand-border shadow-xs"
+                />
+                <p className="text-[11px] font-mono text-brand-muted mt-2">
+                  Present this QR code to the entrance desk scanner for instant check-in.
+                </p>
+              </div>
+            ) : event.is_paid ? (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-left text-xs text-amber-900 leading-relaxed font-mono">
+                <strong>Payment Verification Status:</strong> Your payment proof is under review. Your entry QR pass will activate automatically once verified by an administrator.
+              </div>
+            ) : null}
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              {passQrDataUrl && (
+                <button
+                  onClick={() => window.print()}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-full border border-brand-border text-brand-dark text-xs font-bold uppercase tracking-wider hover:bg-neutral-50"
+                >
+                  Print / Save Pass
+                </button>
+              )}
               <Link
                 href="/events"
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-brand-dark text-white text-xs font-bold uppercase tracking-wider hover:bg-black"

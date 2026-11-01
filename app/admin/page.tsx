@@ -33,6 +33,9 @@ interface AdminStats {
   approvedVolunteers: number;
   approvedColleges: number;
   rejectedApplications: number;
+  totalEvents?: number;
+  totalEventRegistrations?: number;
+  totalEventAttendance?: number;
 }
 
 export default function AdminOverviewPage() {
@@ -49,6 +52,9 @@ export default function AdminOverviewPage() {
     approvedVolunteers: 0,
     approvedColleges: 0,
     rejectedApplications: 0,
+    totalEvents: 0,
+    totalEventRegistrations: 0,
+    totalEventAttendance: 0,
   });
 
   const [loading, setLoading] = useState(true);
@@ -332,11 +338,18 @@ export default function AdminOverviewPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div>
                 <span className="px-3 py-1 rounded-full text-xs font-mono font-bold tracking-wider uppercase bg-brand-blue/10 text-brand-blue">
-                  Core Operations: Event Lifecycle & Registrations
+                  Core Operations: Event Lifecycle & QR Passes
                 </span>
                 <h2 className="font-display text-2xl font-extrabold text-brand-dark uppercase mt-2">
-                  Event Management, Dynamic Forms & UPI Payment Verification
+                  Event Management, Dynamic Forms, QR Passes & Live Attendance
                 </h2>
+                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs font-mono text-brand-dark/70">
+                  <span className="font-bold text-brand-blue">{stats.totalEvents || 0} Active Events</span>
+                  <span>•</span>
+                  <span className="font-bold text-brand-dark">{stats.totalEventRegistrations || 0} Registrations</span>
+                  <span>•</span>
+                  <span className="font-bold text-emerald-700">{stats.totalEventAttendance || 0} Checked In</span>
+                </div>
               </div>
               <div className="p-3 rounded-2xl bg-neutral-100 text-brand-dark self-start">
                 <Calendar className="w-6 h-6 text-brand-blue" />

@@ -102,9 +102,101 @@ export interface EventRegistration {
   registered_at: string;
   updated_at: string;
 
+  // QR Pass & Attendance Fields
+  qr_token?: string;
+  qr_generated_at?: string;
+  is_checked_in?: boolean;
+  checked_in_at?: string | null;
+
   // Joined Payment
   payment?: EventPayment | null;
   event?: EventItem;
+}
+
+export type VolunteerResponsibility = 
+  | "QR_SCANNING"
+  | "PARTICIPANT_CHECK_IN"
+  | "REGISTRATION_DESK"
+  | "EVENT_COORDINATION"
+  | "GENERAL_SUPPORT";
+
+export type VolunteerApplicationStatus = 
+  | "PENDING"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "WITHDRAWN";
+
+export interface EventVolunteerApplication {
+  id: string;
+  event_id: string;
+  volunteer_id: string;
+  motivation: string;
+  experience?: string | null;
+  preferred_responsibilities: VolunteerResponsibility[];
+  assigned_responsibilities: VolunteerResponsibility[];
+  availability: string;
+  additional_info?: string | null;
+  status: VolunteerApplicationStatus;
+  rejection_reason?: string | null;
+  internal_notes?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+
+  // Joined relationships
+  profiles?: {
+    full_name: string;
+    email: string;
+    mobile?: string | null;
+  };
+  event?: EventItem;
+}
+
+export interface EventAttendance {
+  id: string;
+  event_id: string;
+  registration_id: string;
+  participant_id?: string | null;
+  checked_in_by: string;
+  checked_in_at: string;
+  check_in_method: "QR_SCAN" | "MANUAL_ENTRY";
+
+  // Joined fields
+  registration?: EventRegistration;
+  volunteer?: {
+    full_name: string;
+    email: string;
+  };
+}
+
+export type ScanResultStatus =
+  | "CHECK-IN SUCCESSFUL"
+  | "ALREADY CHECKED IN"
+  | "INVALID QR CODE"
+  | "WRONG EVENT"
+  | "PAYMENT NOT VERIFIED"
+  | "REGISTRATION CANCELLED"
+  | "UNAUTHORIZED_SCANNER";
+
+export interface EventScanLog {
+  id: string;
+  event_id: string;
+  registration_id?: string | null;
+  scanned_by: string;
+  scan_result: string;
+  token_hash: string;
+  scan_method: "CAMERA" | "MANUAL";
+  error_message?: string | null;
+  scanned_at: string;
+
+  // Joined
+  volunteer?: {
+    full_name: string;
+    email: string;
+  };
+  registration?: EventRegistration;
 }
 
 export interface EventPayment {

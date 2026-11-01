@@ -14,6 +14,11 @@ import {
   sendPaymentVerifiedEmail, 
   sendPaymentRejectedEmail 
 } from "@/lib/email";
+import { generateQrVerificationToken } from "@/lib/qr";
+import { 
+  sendEventConfirmedPassEmail, 
+  sendPaymentSubmittedEmail 
+} from "@/lib/brevo";
 
 // Built-in verified baseline events for seamless initial launch
 const INITIAL_SEED_EVENTS: EventItem[] = [
@@ -615,9 +620,10 @@ export async function registerParticipant(params: {
     return { success: false, error: "Registration is full for this event. Capacity has been reached." };
   }
 
-  // 5. Build Registration Object
+  // 5. Build Registration Object with Cryptographically Secure QR Token
   const registrationNumber = generateEventRegistrationNumber();
   const regId = `reg-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+  const qrToken = generateQrVerificationToken();
 
   let payment: EventPayment | null = null;
   if (event.is_paid) {
@@ -647,6 +653,8 @@ export async function registerParticipant(params: {
     participant_phone: params.participantPhone,
     answers: params.answers,
     registration_status: "CONFIRMED",
+    qr_token: qrToken,
+    qr_generated_at: new Date().toISOString(),
     registered_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     payment,
@@ -667,6 +675,7 @@ export async function registerParticipant(params: {
         participant_phone: params.participantPhone,
         answers: params.answers,
         registration_status: "CONFIRMED",
+        qr_token: qrToken,
       })
       .select()
       .single();
@@ -706,19 +715,36 @@ export async function registerParticipant(params: {
   list.push(registration);
   inMemoryRegistrations.set(event.id, list);
 
-  // 8. Trigger Email Notification (non-blocking)
-  sendEventRegistrationConfirmationEmail({
-    participantName: registration.participant_name,
-    participantEmail: registration.participant_email,
-    eventTitle: event.title,
-    eventDate: new Date(event.event_start).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }),
-    eventTime: new Date(event.event_start).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
-    venue: event.venue,
-    registrationNumber: registration.registration_number,
-    isPaid: event.is_paid,
-    feeAmount: event.fee_amount,
-    paymentStatus: payment?.payment_status
-  }).catch(err => console.error("[Registration Email Error]", err));
+  // 8. Trigger Brevo Transactional Email Notification
+  try {
+    if (!event.is_paid) {
+      // Free event: QR pass is immediately active and sent
+      sendEventConfirmedPassEmail({
+        recipientEmail: registration.participant_email,
+        recipientName: registration.participant_name,
+        eventTitle: event.title,
+        eventVenue: event.venue,
+        eventStart: event.event_start,
+        eventEnd: event.event_end,
+        registrationNumber: registration.registration_number,
+        registrationId: registration.id,
+        qrToken: qrToken,
+        isPaid: false,
+      }).catch(err => console.error("[Brevo Free Event QR Email]", err));
+    } else {
+      // Paid event: Send payment proof submission acknowledgement (pass active only after admin verification)
+      sendPaymentSubmittedEmail({
+        recipientEmail: registration.participant_email,
+        recipientName: registration.participant_name,
+        eventTitle: event.title,
+        registrationNumber: registration.registration_number,
+        registrationId: registration.id,
+        paymentReference: params.paymentReference,
+      }).catch(err => console.error("[Brevo Payment Submitted Email]", err));
+    }
+  } catch (err) {
+    console.error("[Email Notification Error]", err);
+  }
 
   return { success: true, registration };
 }
@@ -813,23 +839,48 @@ export async function updatePaymentVerification(params: {
         changed_by: params.adminUserId,
         reason: params.reason || null
       });
+    // Fetch from DB if targetReg is not in memory
+    if (!targetReg) {
+      const { data: dbPay } = await adminClient
+        .from("event_payments")
+        .select("*, registration:event_registrations(*, event:events(*))")
+        .eq("id", params.paymentId)
+        .single();
+
+      if (dbPay && dbPay.registration) {
+        targetReg = dbPay.registration as any;
+        targetEvent = (dbPay.registration as any).event;
+      }
+    }
   } catch (err) {
     console.warn("[updatePaymentVerification] DB update error:", err);
   }
 
-  // Trigger Email
+  // Trigger Email via Brevo
   if (targetReg && targetEvent) {
     if (params.action === "VERIFY") {
-      sendPaymentVerifiedEmail({
-        participantName: targetReg.participant_name,
-        participantEmail: targetReg.participant_email,
+      // Ensure qr_token is present
+      const activeQrToken = targetReg.qr_token || generateQrVerificationToken();
+      if (!targetReg.qr_token) {
+        await adminClient
+          .from("event_registrations")
+          .update({ qr_token: activeQrToken })
+          .eq("id", targetReg.id);
+      }
+
+      sendEventConfirmedPassEmail({
+        recipientEmail: targetReg.participant_email,
+        recipientName: targetReg.participant_name,
         eventTitle: targetEvent.title,
-        eventDate: new Date(targetEvent.event_start).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }),
-        eventTime: new Date(targetEvent.event_start).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
-        venue: targetEvent.venue,
+        eventVenue: targetEvent.venue,
+        eventStart: targetEvent.event_start,
+        eventEnd: targetEvent.event_end,
         registrationNumber: targetReg.registration_number,
-        feeAmount: targetEvent.fee_amount
-      }).catch(err => console.error("[Payment Verified Email]", err));
+        registrationId: targetReg.id,
+        qrToken: activeQrToken,
+        isPaid: true,
+        feeAmount: targetEvent.fee_amount,
+      }).catch(err => console.error("[Brevo Payment Verified QR Email]", err));
     } else if (params.action === "REJECT" || params.action === "REQUEST_NEW") {
       sendPaymentRejectedEmail({
         participantName: targetReg.participant_name,

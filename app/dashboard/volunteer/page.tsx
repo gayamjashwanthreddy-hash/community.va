@@ -166,6 +166,13 @@ export default function VolunteerDashboardPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard/volunteer/events"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-brand-red text-white text-xs font-mono font-bold uppercase hover:bg-brand-red/90 transition-colors shadow-xs"
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Event Volunteer Opportunities</span>
+              </Link>
               <div className="p-3 rounded-2xl bg-brand-red-light text-brand-red">
                 <HandHeart className="w-8 h-8" />
               </div>

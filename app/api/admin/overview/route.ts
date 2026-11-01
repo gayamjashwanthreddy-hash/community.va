@@ -46,6 +46,9 @@ export async function GET() {
       { count: rejectedStudents },
       { count: rejectedVolunteers },
       { count: rejectedColleges },
+      { count: totalEvents },
+      { count: totalEventRegistrations },
+      { count: totalEventAttendance },
     ] = await Promise.all([
       adminClient.from("students").select("*", { count: "exact", head: true }),
       adminClient.from("volunteers").select("*", { count: "exact", head: true }),
@@ -59,6 +62,9 @@ export async function GET() {
       adminClient.from("students").select("*", { count: "exact", head: true }).eq("status", "REJECTED"),
       adminClient.from("volunteers").select("*", { count: "exact", head: true }).eq("status", "REJECTED"),
       adminClient.from("colleges").select("*", { count: "exact", head: true }).eq("status", "REJECTED"),
+      adminClient.from("events").select("*", { count: "exact", head: true }).is("deleted_at", null),
+      adminClient.from("event_registrations").select("*", { count: "exact", head: true }),
+      adminClient.from("event_attendance").select("*", { count: "exact", head: true }),
     ]);
 
     return NextResponse.json({
@@ -74,6 +80,9 @@ export async function GET() {
         approvedVolunteers: approvedVolunteers || 0,
         approvedColleges: approvedColleges || 0,
         rejectedApplications: (rejectedStudents || 0) + (rejectedVolunteers || 0) + (rejectedColleges || 0),
+        totalEvents: totalEvents || 0,
+        totalEventRegistrations: totalEventRegistrations || 0,
+        totalEventAttendance: totalEventAttendance || 0,
       },
     });
   } catch (err: unknown) {

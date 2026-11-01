@@ -23,7 +23,9 @@ import {
   RefreshCw,
   Eye,
   FileSpreadsheet,
-  AlertTriangle
+  AlertTriangle,
+  QrCode,
+  HandHeart
 } from "lucide-react";
 import { EventItem, EventStatus } from "@/lib/events/types";
 
@@ -411,6 +413,26 @@ export default function AdminEventsListPage() {
                         {/* Actions */}
                         <td className="py-4 px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
+                            {/* Attendance & Scan Logs */}
+                            <Link
+                              href={`/admin/events/${evt.id}/attendance`}
+                              className="px-2.5 py-1 text-xs font-semibold rounded border border-brand-border hover:bg-neutral-100 text-brand-dark flex items-center gap-1"
+                              title="Live QR Attendance & Scans"
+                            >
+                              <QrCode className="w-3 h-3 text-brand-red" />
+                              <span>Attendance</span>
+                            </Link>
+
+                            {/* Volunteer Staffing */}
+                            <Link
+                              href={`/admin/events/${evt.id}/volunteers`}
+                              className="px-2.5 py-1 text-xs font-semibold rounded border border-brand-border hover:bg-neutral-100 text-brand-dark flex items-center gap-1"
+                              title="Event Volunteer Applications & Roles"
+                            >
+                              <HandHeart className="w-3 h-3 text-brand-dark" />
+                              <span>Volunteers</span>
+                            </Link>
+
                             {/* View Registrations */}
                             <Link
                               href={`/admin/events/${evt.id}/registrations`}
